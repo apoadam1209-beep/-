@@ -27,6 +27,23 @@ npm run dev      # بيئة التطوير
 npm run build    # بناء الإنتاج (مع فحص TypeScript)
 ```
 
+## النشر على GitHub Pages
+
+الموقع مبني للنشر من مجلد `docs/` على فرع الجلسة (اسم المستودع `-`، لذا مسار
+الأساس `/-/`). أعد البناء ونشره بأمر:
+
+```bash
+npm run build:github
+git add docs && git commit -m "تحديث نسخة GitHub Pages" && git push
+```
+
+ثم من المستودع على GitHub: **Settings ← Pages ← Source: Deploy from a branch**،
+اختر الفرع `arena/01a0555b-repo` والمجلد `/docs`، واحفظ. سيكون الرابط:
+
+**https://apoadam1209-beep.github.io/-/**
+
+(ملف `404.html` يضمن عمل الروابط الداخلية للتصفح، و`.nojekyll` يمنع معالجة Jekyll.)
+
 ## البنية
 
 ```

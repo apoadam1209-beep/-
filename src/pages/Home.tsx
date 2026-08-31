@@ -72,7 +72,7 @@ export default function Home() {
 
           <div className="animate-floaty relative hidden lg:block">
             <img
-              src="/hero.png"
+              src={`${import.meta.env.BASE_URL}hero.png`}
               alt="منتجات كرياتيفو الرقمية"
               className="w-full rounded-3xl border border-white/10 shadow-2xl shadow-violet-950/50"
             />

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:github": "vite build --base=/-/ --outDir=docs && cp docs/index.html docs/404.html && touch docs/.nojekyll"
   },
   "dependencies": {
     "lucide-react": "^0.462.0",

@@ -5,8 +5,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'ملكي — منصة المنتجات الرقمية',
-  description: 'منصة للمنتجات الرقمية باشتراك شهري أو سنوي — قوالب، كورسات، إي-بوكس ومكتبات جاهزة.',
+  title: 'Creativo — منصة المنتجات الرقمية',
+  description: 'منصة للمنتجات الرقمية باشتراك شهري أو سنوي — قوالب، كورسات، إي-بوكس، موسيقى، صور ومكتبات جاهزة.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

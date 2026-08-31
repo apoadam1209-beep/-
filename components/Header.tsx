@@ -49,7 +49,7 @@ export default function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-extrabold text-white">
-            م
+            C
           </span>
           <span className="leading-tight">
             <span className="block text-base font-extrabold text-slate-900">{t('brand')}</span>

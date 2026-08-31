@@ -147,6 +147,42 @@ const paths: Record<string, React.ReactNode> = {
       <polyline points="12 5 19 12 12 19" />
     </>
   ),
+  music: (
+    <>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </>
+  ),
+  video: (
+    <>
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </>
+  ),
+  type: (
+    <>
+      <polyline points="4 7 4 4 20 4 20 7" />
+      <line x1="9" y1="20" x2="15" y2="20" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </>
+  ),
+  palette: (
+    <>
+      <path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10c0 2-1.5 3.5-3.5 3.5h-2.1c-1 0-1.9.9-1.9 1.9 0 .5.2.9.5 1.3.3.3.5.7.5 1.2 0 1.1-.9 2.1-2 2.1z" />
+      <circle cx="7.5" cy="11.5" r="1" />
+      <circle cx="10.5" cy="7.5" r="1" />
+      <circle cx="14.5" cy="7.5" r="1" />
+      <circle cx="17.5" cy="11.5" r="1" />
+    </>
+  ),
 };
 
 export function Icon({ name, className = 'h-5 w-5' }: { name: string; className?: string }) {
@@ -171,6 +207,11 @@ export const categoryIcon: Record<string, string> = {
   courses: 'play',
   ebooks: 'book',
   audio: 'mic',
+  music: 'music',
+  videos: 'video',
+  photos: 'image',
+  fonts: 'type',
+  design: 'palette',
   files: 'file',
   other: 'box',
 };
@@ -180,6 +221,11 @@ export const categoryGradient: Record<string, string> = {
   courses: 'from-indigo-500 to-violet-500',
   ebooks: 'from-emerald-500 to-teal-500',
   audio: 'from-amber-500 to-orange-500',
+  music: 'from-fuchsia-500 to-pink-500',
+  videos: 'from-red-500 to-rose-600',
+  photos: 'from-blue-500 to-cyan-500',
+  fonts: 'from-purple-500 to-indigo-600',
+  design: 'from-teal-500 to-green-500',
   files: 'from-sky-500 to-cyan-500',
   other: 'from-slate-500 to-slate-600',
 };

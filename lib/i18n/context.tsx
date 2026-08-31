@@ -16,7 +16,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = (localStorage.getItem('maleky_lang') as Lang) || 'ar';
+    const saved = (localStorage.getItem('creativo_lang') as Lang) || 'ar';
     setLangState(saved);
     setReady(true);
   }, []);
@@ -28,7 +28,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [lang, ready]);
 
   const setLang = (l: Lang) => {
-    localStorage.setItem('maleky_lang', l);
+    localStorage.setItem('creativo_lang', l);
     setLangState(l);
   };
 

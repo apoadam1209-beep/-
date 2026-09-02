@@ -42,8 +42,8 @@
   </div>
 </div>
 <script>
-function img(s){var i=new Image();i.src=s;return i;}
-window.ASSETS={bg:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_temple.png'),ruins:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_ruins.png'),crystal:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/prop_crystal.png')};
+function img(s){var i=new Image();i.crossOrigin='anonymous';i.src=s;return i;}
+window.ASSETS={bg:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_temple.png'),ruins:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_ruins.png'),crystal:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/prop_crystal.png'),alien:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/char_alien.png'),guardian:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/char_guardian.png'),sentry:img('https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/char_sentry.png')};
 ;
 /* ===== أدوات مساعدة عامة ===== */
 function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
@@ -553,6 +553,52 @@ class Game {
     if (this.state === 'lose') this._drawLose(ctx);
   }
   _img(name) { var a = window.ASSETS; return (a && a[name] && a[name].complete && a[name].naturalWidth) ? a[name] : null; }
+  _ensure(name) {
+    var A = window.ASSETS; if (!A || !A[name]) return null;
+    if (A[name + '_spr']) return A[name + '_spr'];
+    var img = A[name];
+    if (img && img.complete && img.naturalWidth) {
+      try { A[name + '_spr'] = this._makeSprite(img); } catch (e) { A[name + '_spr'] = null; }
+      return A[name + '_spr'];
+    }
+    return null;
+  }
+  _makeSprite(img) {
+    var cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    var c = cv.getContext('2d'); c.drawImage(img, 0, 0);
+    var d = c.getImageData(0, 0, cv.width, cv.height), px = d.data;
+    function avg(x0, y0, x1, y1) {
+      var r = 0, g = 0, b = 0, n = 0;
+      for (var y = y0; y < y1; y += 3) for (var x = x0; x < x1; x += 3) {
+        var i = (y * cv.width + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; n++;
+      }
+      return [r / n, g / n, b / n];
+    }
+    var a0 = avg(0, 0, 16, 16), a1 = avg(cv.width - 16, 0, cv.width, 16),
+        a2 = avg(0, cv.height - 16, 16, cv.height), a3 = avg(cv.width - 16, cv.height - 16, cv.width, cv.height);
+    var R = (a0[0] + a1[0] + a2[0] + a3[0]) / 4,
+        G = (a0[1] + a1[1] + a2[1] + a3[1]) / 4,
+        B = (a0[2] + a1[2] + a2[2] + a3[2]) / 4;
+    var T = 75;
+    for (var k = 0; k < px.length; k += 4) {
+      var dr = px[k] - R, dg = px[k + 1] - G, db = px[k + 2] - B;
+      var dist = Math.sqrt(dr * dr + dg * dg + db * db);
+      if (dist < T) px[k + 3] = 0;
+      else if (dist < T * 2) px[k + 3] = Math.floor((dist - T) / T * 255);
+      else px[k + 3] = 255;
+    }
+    c.putImageData(d, 0, 0);
+    return cv;
+  }
+  _drawSprite(ctx, spr, cx, footY, h, facing) {
+    var iw = spr.width, ih = spr.height, w = h * (iw / ih);
+    ctx.save();
+    ctx.translate(cx, footY);
+    ctx.scale(facing >= 0 ? 1 : -1, 1);
+    ctx.drawImage(spr, -w / 2, -h, w, h);
+    ctx.restore();
+  }
   _drawBg(ctx) {
     var bg = this._img('bg');
     if (bg) {
@@ -665,12 +711,16 @@ class Game {
     g.addColorStop(1, 'rgba(255,120,40,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.arc(ex, ey, h.visionRange, a0, a1); ctx.closePath(); ctx.fill();
     ctx.restore();
-    // جسم الدرع
-    ctx.fillStyle = '#5b4636'; ctx.fillRect(h.x + 3, h.y + 16, h.w - 6, h.h - 22);
-    ctx.fillStyle = '#3c2f24'; ctx.fillRect(h.x + 3, h.y + 16, h.w - 6, 8);
-    ctx.fillStyle = '#caa46a'; ctx.beginPath(); ctx.arc(ex, h.y + 11, 9, 0, 7); ctx.fill();
-    ctx.fillStyle = h.seeing ? '#ff5555' : '#ffcf6b';
-    ctx.beginPath(); ctx.arc(ex + h.dir * 3, h.y + 11, 3, 0, 7); ctx.fill();
+    var spr = this._ensure('guardian');
+    if (spr) {
+      this._drawSprite(ctx, spr, h.x + h.w / 2, h.y + h.h, h.h * 2.4, h.dir);
+    } else {
+      ctx.fillStyle = '#5b4636'; ctx.fillRect(h.x + 3, h.y + 16, h.w - 6, h.h - 22);
+      ctx.fillStyle = '#3c2f24'; ctx.fillRect(h.x + 3, h.y + 16, h.w - 6, 8);
+      ctx.fillStyle = '#caa46a'; ctx.beginPath(); ctx.arc(ex, h.y + 11, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = h.seeing ? '#ff5555' : '#ffcf6b';
+      ctx.beginPath(); ctx.arc(ex + h.dir * 3, h.y + 11, 3, 0, 7); ctx.fill();
+    }
   }
   _drawSentry(ctx, c) {
     var a0 = c.angle - c.fov, a1 = c.angle + c.fov;
@@ -680,9 +730,14 @@ class Game {
     g.addColorStop(1, 'rgba(80,160,255,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.arc(c.x, c.y, c.range, a0, a1); ctx.closePath(); ctx.fill();
     ctx.restore();
-    ctx.fillStyle = '#2a2620'; ctx.fillRect(c.x - 14, c.y - 10, 28, 20);
-    ctx.fillStyle = c.seeing ? '#ff4040' : '#7fd0ff';
-    ctx.beginPath(); ctx.arc(c.x, c.y, 7, 0, 7); ctx.fill();
+    var spr = this._ensure('sentry');
+    if (spr) {
+      this._drawSprite(ctx, spr, c.x, c.y + 40, 80, 1);
+    } else {
+      ctx.fillStyle = '#2a2620'; ctx.fillRect(c.x - 14, c.y - 10, 28, 20);
+      ctx.fillStyle = c.seeing ? '#ff4040' : '#7fd0ff';
+      ctx.beginPath(); ctx.arc(c.x, c.y, 7, 0, 7); ctx.fill();
+    }
     ctx.strokeStyle = c.seeing ? '#ff5050' : '#88c0ff'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.cos(c.angle) * 16, c.y + Math.sin(c.angle) * 16); ctx.stroke();
   }
@@ -703,7 +758,15 @@ class Game {
       ctx.beginPath(); ctx.moveTo(pl.x, pl.y); ctx.lineTo(pl.x + pl.w, pl.y + pl.h);
       ctx.moveTo(pl.x + pl.w, pl.y); ctx.lineTo(pl.x, pl.y + pl.h); ctx.stroke();
     } else {
-      this._drawAlien(ctx, pl.x, pl.y, pl.w, pl.h, pl.facing, pl.animT, pl.cloaked);
+      var spr = this._ensure('alien');
+      if (spr) {
+        var bob = Math.abs(Math.sin(pl.animT * 6)) * 2;
+        var cx = pl.x + pl.w / 2, footY = pl.y + pl.h + bob;
+        if (pl.cloaked) ctx.globalAlpha = 0.35;
+        this._drawSprite(ctx, spr, cx, footY, pl.h * 2.2, pl.facing);
+      } else {
+        this._drawAlien(ctx, pl.x, pl.y, pl.w, pl.h, pl.facing, pl.animT, pl.cloaked);
+      }
     }
     if (pl.gravityDir === -1) { ctx.fillStyle = 'rgba(120,255,200,0.9)'; ctx.font = '14px sans-serif'; ctx.fillText('🌀', pl.x - 2, pl.y - 6); }
     ctx.restore();

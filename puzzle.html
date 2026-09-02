@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ZUGO: أصلح الدائرة</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#07060f;
+    font-family:'Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif;touch-action:none;}
+  #game{position:fixed;inset:0;display:block;background:#07060f;}
+  .hint{position:fixed;top:8px;left:50%;transform:translateX(-50%);
+    color:#9fb3ff;font-size:12px;opacity:.8;z-index:10;pointer-events:none;text-align:center;width:92%;}
+  .controls{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,14px);
+    padding:0 16px 16px;display:flex;justify-content:center;gap:14px;z-index:10;}
+  .btn{height:54px;min-width:130px;border-radius:16px;border:2px solid rgba(120,200,255,.5);
+    background:rgba(20,30,55,.7);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;
+    user-select:none;backdrop-filter:blur(4px);box-shadow:0 4px 14px rgba(0,0,0,.45);}
+  .btn:active{transform:scale(.94);background:rgba(40,60,100,.8);}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hint">اضغط على أي قطعة لتدويرها — أوصِل الطاقة من المفاعل الأخضر إلى قلب السفينة الذهبي</div>
+<div class="controls">
+  <div class="btn" id="btn-reset">↻ إعادة الترتيب</div>
+</div>
+<script>
+/* ===== أدوات ===== */
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function setEq(a,b){if(a.length!==b.length)return false;a=a.slice().sort();b=b.slice().sort();for(var i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+var BASE={straight:[0,2],corner:[0,1],tee:[0,1,2],cross:[0,1,2,3]};
+var DR=[-1,0,1,0], DC=[0,1,0,-1]; // N,E,S,W
+function dirTo(a,b){if(b.r===a.r-1)return 0;if(b.c===a.c+1)return 1;if(b.r===a.r+1)return 2;return 3;}
+function conns(cell){
+  if(cell.type==='node') return [cell.dir];
+  return BASE[cell.type].map(function(d){return (d+cell.rot)%4;});
+}
+
+/* ===== توليد المرحلة (مسار مضمون الحل) ===== */
+function buildLevel(R,C){
+  var sr=Math.floor(Math.random()*R), sc=0;
+  var er=Math.floor(Math.random()*R), ec=C-1;
+  // مسار عشوائي بسيط
+  var visited=Array.from({length:R},function(){return Array(C).fill(false);});
+  var path=[];
+  function dfs(r,c){
+    visited[r][c]=true; path.push({r:r,c:c});
+    if(r===er&&c===ec) return true;
+    var ds=shuffle([0,1,2,3]);
+    for(var k=0;k<4;k++){var d=ds[k],nr=r+DR[d],nc=c+DC[d];
+      if(nr>=0&&nr<R&&nc>=0&&nc<C&&!visited[nr][nc]){ if(dfs(nr,nc)) return true; }}
+    path.pop(); visited[r][c]=false; return false;
+  }
+  dfs(sr,sc);
+  var grid=[];
+  for(var r=0;r<R;r++){var row=[];for(var c=0;c<C;c++)row.push({type:'empty',rot:0,fixed:false,onPath:false});grid.push(row);}
+  function setCell(r,c,type,dirs,fromPath){
+    var cell=grid[r][c];
+    cell.type=type; cell.onPath=fromPath;
+    if(type==='node'){ cell.dir=dirs[0]; cell.fixed=true; cell.rot=0; }
+    else{
+      var base=BASE[type]; var sol=-1;
+      for(var rt=0;rt<4;rt++){ if(setEq(base.map(function(d){return (d+rt)%4;}),dirs)){sol=rt;break;} }
+      cell.solRot=sol<0?0:sol; cell.rot=shuffle([0,1,2,3].filter(function(x){return x!==cell.solRot;}))[0];
+      cell.fixed=false;
+    }
+  }
+  for(var i=0;i<path.length;i++){
+    var cur=path[i];
+    var dirs=[];
+    if(i>0) dirs.push(dirTo(cur,path[i-1]));
+    if(i<path.length-1) dirs.push(dirTo(cur,path[i+1]));
+    if(dirs.length===2){ var t=((dirs[0]+2)%4===dirs[1])?'straight':'corner'; setCell(cur.r,cur.c,t,dirs,true); }
+    else { setCell(cur.r,cur.c,'node',dirs,true); }
+  }
+  // ملء الفراغات بقطع مشتتة
+  for(var r2=0;r2<R;r2++)for(var c2=0;c2<C;c2++){
+    var cell=grid[r2][c2];
+    if(cell.type==='empty'){
+      if(Math.random()<0.62){
+        var types=['straight','corner','corner','tee'];
+        cell.type=types[Math.floor(Math.random()*types.length)];
+        cell.rot=Math.floor(Math.random()*4); cell.onPath=false; cell.fixed=false;
+      }
+    }
+  }
+  grid[er][ec].type='node'; grid[er][ec].dir=dirTo(grid[er][ec],path[path.length-2]); grid[er][ec].fixed=true;
+  return {R:R,C:C,grid:grid,src:{r:sr,c:sc},sink:{r:er,c:ec},solved:false};
+}
+function scramble(L){
+  for(var r=0;r<L.R;r++)for(var c=0;c<L.C;c++){var cell=L.grid[r][c];
+    if(cell.type!=='empty'&&!cell.fixed&&cell.type!=='node'){cell.rot=Math.floor(Math.random()*4);}}
+}
+
+/* ===== اللعبة ===== */
+class Puzzle {
+  constructor(canvas){
+    this.canvas=canvas; this.ctx=canvas.getContext('2d');
+    this.W=0;this.H=0;this.dpr=1;this.state='title';
+    this.levelIdx=0; this.levels=[{R:3,C:3},{R:4,C:4},{R:5,C:5}];
+    this.L=null; this.time=0; this.winT=0;
+    this.img=new Image(); this.img.crossOrigin='anonymous';
+    this.img.src='https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_temple.png';
+    var self=this;
+    this._resize();
+    window.addEventListener('resize',function(){self._resize();});
+    canvas.addEventListener('pointerdown',function(e){self._onTap(e);});
+    document.getElementById('btn-reset').addEventListener('pointerdown',function(e){e.preventDefault();if(self.L)scramble(self.L);});
+    this.last=performance.now();
+    requestAnimationFrame(function(t){self._frame(t);});
+  }
+  _resize(){
+    var w=window.innerWidth,h=window.innerHeight; this.dpr=Math.min(window.devicePixelRatio||1,2);
+    this.canvas.width=Math.floor(w*this.dpr); this.canvas.height=Math.floor(h*this.dpr);
+    this.canvas.style.width=w+'px'; this.canvas.style.height=h+'px';
+    this.W=w; this.H=h;
+  }
+  start(){ this.levelIdx=0; this.L=buildLevel(this.levels[0].R,this.levels[0].C); this.state='play'; }
+  nextLevel(){
+    this.levelIdx++;
+    if(this.levelIdx>=this.levels.length){ this.state='win'; return; }
+    var lv=this.levels[this.levelIdx]; this.L=buildLevel(lv.R,lv.C); this.state='play';
+  }
+  _frame(now){var dt=(now-this.last)/1000;this.last=now;if(dt>0.05)dt=0.05;this.time+=dt;this.update();this.render();var s=this;requestAnimationFrame(function(t){s._frame(t);});}
+  update(){
+    if(this.state!=='play'||!this.L)return;
+    // فحص الحل
+    var L=this.L, powered=this._bfs(L);
+    if(powered[L.sink.r][L.sink.c] && !L.solved){ L.solved=true; this.winT=this.time; setTimeout((function(s){return function(){s.nextLevel();};})(this), 900); }
+  }
+  _bfs(L){
+    var R=L.R,C=L.C, pow=Array.from({length:R},function(){return Array(C).fill(false);});
+    var q=[L.src]; pow[L.src.r][L.src.c]=true;
+    while(q.length){
+      var cur=q.shift();
+      var cell=L.grid[cur.r][cur.c]; var cs=conns(cell);
+      for(var i=0;i<cs.length;i++){ var d=cs[i]; var nr=cur.r+DR[d], nc=cur.c+DC[d];
+        if(nr<0||nr>=R||nc<0||nc>=C) continue;
+        if(pow[nr][nc]) continue;
+        var nb=L.grid[nr][nc]; if(nb.type==='empty') continue;
+        var ncs=conns(nb);
+        if(ncs.indexOf((d+2)%4)>=0){ pow[nr][nc]=true; q.push({r:nr,c:nc}); }
+      }
+    }
+    return pow;
+  }
+  _onTap(e){
+    if(this.state==='title'){ this.start(); return; }
+    if(this.state==='win'){ this.state='title'; return; }
+    if(!this.L) return;
+    var rect=this.canvas.getBoundingClientRect();
+    var px=e.clientX-rect.left, py=e.clientY-rect.top;
+    var g=this._gridGeom();
+    var c=Math.floor((px-g.x)/g.cs), r=Math.floor((py-g.y)/g.cs);
+    if(r<0||r>=this.L.R||c<0||c>=this.L.C) return;
+    var cell=this.L.grid[r][c];
+    if(cell.type!=='empty' && !cell.fixed && cell.type!=='node') cell.rot=(cell.rot+1)%4;
+  }
+  _gridGeom(){
+    var L=this.L, pad=20;
+    var cs=Math.min((this.W-pad*2)/L.C, (this.H*0.62)/L.R);
+    var gw=cs*L.C, gh=cs*L.R;
+    var x=(this.W-gw)/2, y=(this.H-gh)/2 + this.H*0.04;
+    return {x:x,y:y,cs:cs};
+  }
+  render(){
+    var ctx=this.ctx, W=this.W,H=this.H;
+    ctx.setTransform(this.dpr,0,0,this.dpr,0,0); ctx.clearRect(0,0,W,H);
+    if(this.img.complete&&this.img.naturalWidth){ var s=Math.max(W/this.img.naturalWidth,H/this.img.naturalHeight); ctx.drawImage(this.img,(W-this.img.naturalWidth*s)/2,(H-this.img.naturalHeight*s)/2,this.img.naturalWidth*s,this.img.naturalHeight*s); }
+    else { ctx.fillStyle='#0a0814'; ctx.fillRect(0,0,W,H); }
+    if(this.state==='title'){ this._title(ctx); return; }
+    if(this.state==='win'){ this._win(ctx); return; }
+    var g=this._gridGeom(); var L=this.L;
+    var powered=this._bfs(L);
+    // لوحة الشبكة
+    ctx.fillStyle='rgba(10,14,28,0.55)'; this._rr(ctx,g.x-10,g.y-10,g.cs*L.C+20,g.cs*L.R+20,14); ctx.fill();
+    for(var r=0;r<L.R;r++)for(var c=0;c<L.C;c++){
+      var cell=L.grid[r][c]; var cx=g.x+c*g.cs+g.cs/2, cy=g.y+r*g.cs+g.cs/2;
+      // خلفية الخلية
+      ctx.fillStyle='rgba(255,255,255,0.04)'; this._rr(ctx,g.x+c*g.cs+3,g.y+r*g.cs+3,g.cs-6,g.cs-6,8); ctx.fill();
+      if(cell.type==='empty') continue;
+      var lit=powered[r][c];
+      this._drawCell(ctx,cx,cy,g.cs,cell,lit,L,r,c);
+    }
+    // HUD
+    ctx.fillStyle='rgba(8,12,28,0.6)'; ctx.fillRect(0,0,W,46);
+    ctx.fillStyle='#ffe9b0'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('المرحلة '+(this.levelIdx+1)+' / '+this.levels.length, W/2, 30);
+    ctx.textAlign='left';
+  }
+  _drawCell(ctx,cx,cy,cs,cell,lit,L,r,c){
+    var lw=cs*0.18;
+    ctx.lineCap='round'; ctx.lineWidth=lw;
+    ctx.strokeStyle= lit? '#39e0ff':'rgba(150,160,190,0.5)';
+    if(lit){ ctx.shadowColor='#39e0ff'; ctx.shadowBlur=16; } else { ctx.shadowBlur=0; }
+    var cs2=conns(cell);
+    for(var i=0;i<cs2.length;i++){ var d=cs2[i];
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+DC[d]*cs/2, cy+DR[d]*cs/2); ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+    if(cell.type==='node'){
+      if(cell===L.grid[L.src.r][L.src.c]){ ctx.fillStyle='#39ff9e'; ctx.beginPath(); ctx.arc(cx,cy,cs*0.22,0,7); ctx.fill(); }
+      else { ctx.fillStyle='#ffd24a'; ctx.beginPath(); ctx.arc(cx,cy,cs*0.22,0,7); ctx.fill(); }
+    }
+  }
+  _rr(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  _title(ctx){
+    var W=this.W,H=this.H; ctx.fillStyle='rgba(5,6,12,0.75)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle='#9affc8'; ctx.font='bold 40px sans-serif'; ctx.fillText('ZUGO',W/2,H*0.34);
+    ctx.fillStyle='#ffe9b0'; ctx.font='bold 22px sans-serif'; ctx.fillText('أصلح الدائرة 🔧',W/2,H*0.34+34);
+    ctx.fillStyle='#cbd'; ctx.font='15px sans-serif';
+    this._wrap(ctx,'اضغط على قطع الدائرة لتدويرها وأوصِل الطاقة الخضراء بقلب السفينة الذهبي لإصلاح السفينة والهروب من الأرض.',W/2,H*0.5,W*0.82,22);
+    var blink=0.5+0.5*Math.sin(this.time*4); ctx.globalAlpha=blink; ctx.fillStyle='#ffd24a'; ctx.font='bold 22px sans-serif';
+    ctx.fillText('انقر للبدء',W/2,H*0.72); ctx.globalAlpha=1; ctx.textAlign='left';
+  }
+  _win(ctx){
+    var W=this.W,H=this.H; ctx.fillStyle='rgba(5,20,10,0.82)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle='#9affc8'; ctx.font='bold 30px sans-serif'; ctx.fillText('أصلحت السفينة! 🛸',W/2,H*0.4);
+    ctx.fillStyle='#fff'; ctx.font='17px sans-serif'; ctx.fillText('عاد زوغو إلى كوكبه بأمان',W/2,H*0.4+32);
+    var blink=0.5+0.5*Math.sin(this.time*4); ctx.globalAlpha=blink; ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif';
+    ctx.fillText('انقر للعبة جديدة',W/2,H*0.7); ctx.globalAlpha=1; ctx.textAlign='left';
+  }
+  _wrap(ctx,text,x,y,maxW,lh){var words=text.split(' '),line='',yy=y;for(var i=0;i<words.length;i++){var t=line?line+' '+words[i]:words[i];if(ctx.measureText(t).width>maxW&&line){ctx.fillText(line,x,yy);line=words[i];yy+=lh;}else line=t;}ctx.fillText(line,x,yy);}
+}
+window.addEventListener('load',function(){ new Puzzle(document.getElementById('game')); });
+</script>
+</body>
+</html>

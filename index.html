@@ -47,6 +47,12 @@
 <script src="src/level.js"></script>
 <script src="src/game.js"></script>
 <script>
+  function img(s){var i=new Image();i.src=s;return i;}
+  window.ASSETS = {
+    bg: img('assets/bg_temple.png'),
+    ruins: img('assets/bg_ruins.png'),
+    crystal: img('assets/prop_crystal.png')
+  };
   window.addEventListener('load', function(){
     var g = new Game(document.getElementById('game'));
     window.__game = g;

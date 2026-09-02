@@ -50,9 +50,19 @@ function buildLevel(H) {
     new EnergyCell(3080, groundTop - 220)
   ];
 
+  // شعلات جدارية (إضاءة سينمائية)
+  var torches = [300, 1100, 1700, 2500, 3300].map(function (x) { return { x: x, y: groundTop }; });
+  // فخاخ أشواك على الأرض (يجب القفز فوقها)
+  var spikes = [
+    { x: 1300, y: groundTop - 18, w: 84, h: 18 },
+    { x: 2050, y: groundTop - 18, w: 92, h: 18 },
+    { x: 2980, y: groundTop - 18, w: 84, h: 18 }
+  ];
+
   return {
     worldW: W, worldH: H, groundTop: groundTop,
     platforms: plats, parts: parts, humans: humans, cams: cams, cells: cells,
+    torches: torches, spikes: spikes,
     spawn: { x: 60, y: groundTop - 50 },
     ship: { x: 3520, y: groundTop - 130 }
   };

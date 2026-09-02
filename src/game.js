@@ -7,7 +7,8 @@ class Game {
     this.lives = 3; this.score = 0; this.detection = 0; this.alertT = 0;
     this.time = 0; this.collected = 0; this.totalParts = 0;
     this.player = null; this.level = null;
-    this.particles = [];
+    this.particles = []; this.floaters = []; this.bursts = [];
+    this.combo = 1; this.comboTimer = 0; this.shake = 0;
     this._resize();
     var self = this;
     window.addEventListener('resize', function () { self._resize(); });
@@ -41,12 +42,14 @@ class Game {
   startGame() {
     audio(); this._build();
     this.lives = 3; this.score = 0; this.detection = 0;
-    this.time = 0; this.collected = 0; this.state = 'play';
+    this.time = 0; this.collected = 0; this.combo = 1; this.comboTimer = 0;
+    this.floaters = []; this.bursts = []; this.shake = 0;
+    this.state = 'play';
   }
   respawn() {
     sfx('caught'); this.lives--;
     if (this.lives <= 0) { this.state = 'lose'; return; }
-    this.detection = 0;
+    this.detection = 0; this.combo = 1;
     this.player.x = this.level.spawn.x; this.player.y = this.level.spawn.y;
     this.player.vx = 0; this.player.vy = 0; this.player.gravityDir = 1;
     this.player.energy = this.player.maxEnergy;
@@ -78,7 +81,12 @@ class Game {
       if (!p.collected) {
         p.update(dt);
         if (dist2(pc.x, pc.y, p.x, p.y) < (p.r + 22) * (p.r + 22)) {
-          p.collected = true; this.collected++; this.score += 100; sfx('collect');
+          p.collected = true; this.collected++;
+          var bonus = 100 * this.combo; this.score += bonus;
+          this.combo = Math.min(this.combo + 1, 9);
+          this._floater(p.x, p.y - 20, '+' + bonus, '#ffd24a');
+          this._burst(p.x, p.y, '#ffd24a', 16);
+          sfx('collect');
         }
       }
     }
@@ -89,6 +97,7 @@ class Game {
         if (dist2(pc.x, pc.y, c.x, c.y) < (c.r + 22) * (c.r + 22)) {
           c.taken = true;
           pl.energy = Math.min(pl.maxEnergy, pl.energy + 45);
+          this._floater(c.x, c.y - 16, '+طاقة', '#39d0ff');
           this.score += 20; sfx('cell');
         }
       }
@@ -96,9 +105,17 @@ class Game {
     var spotted = false;
     for (i = 0; i < L.humans.length; i++) if (L.humans[i].seeing) spotted = true;
     for (i = 0; i < L.cams.length; i++) if (L.cams[i].seeing) spotted = true;
-    if (spotted) { this.detection = Math.min(100, this.detection + 55 * dt); this.alertT = 0.25; }
-    else { this.detection = Math.max(0, this.detection - 30 * dt); }
+    if (spotted) { this.detection = Math.min(100, this.detection + 55 * dt); this.alertT = 0.25; this.combo = 1; this.comboTimer = 0; }
+    else { this.detection = Math.max(0, this.detection - 30 * dt); this.comboTimer = Math.min(this.comboTimer + dt, 3); }
     if (this.alertT > 0) this.alertT -= dt;
+    // تأثيرات (جسيمات + نصوص عائمة + اهتزاز)
+    var fi, e;
+    for (fi = this.floaters.length - 1; fi >= 0; fi--) { e = this.floaters[fi]; e.y -= 26 * dt; e.life -= dt; if (e.life <= 0) this.floaters.splice(fi, 1); }
+    for (fi = this.bursts.length - 1; fi >= 0; fi--) {
+      e = this.bursts[fi]; e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 240 * dt; e.life -= dt;
+      if (e.life <= 0) this.bursts.splice(fi, 1);
+    }
+    this.shake = this.detection > 60 ? (this.detection > 88 ? 7 : 3.5) : 0;
     if (this.detection >= 100) { this.respawn(); return; }
     if (this.collected >= this.totalParts) { this.state = 'win'; sfx('win'); }
   }
@@ -110,7 +127,9 @@ class Game {
     this._drawBg(ctx);
     if (this.state === 'title') { this._drawTitle(ctx); return; }
     var camX = clamp(this.player.x + this.player.w / 2 - this.W * 0.42, 0, Math.max(0, this.level.worldW - this.W));
-    ctx.save(); ctx.translate(-camX, 0); this._drawWorld(ctx); ctx.restore();
+    var sx = this.shake ? (Math.random() - 0.5) * this.shake : 0;
+    var sy = this.shake ? (Math.random() - 0.5) * this.shake : 0;
+    ctx.save(); ctx.translate(-camX + sx, sy); this._drawWorld(ctx); ctx.restore();
     this._drawParticles(ctx);
     this._drawVignette(ctx);
     this._drawHud(ctx);
@@ -163,6 +182,13 @@ class Game {
     ctx.scale(facing >= 0 ? 1 : -1, 1);
     ctx.drawImage(spr, -w / 2, -h, w, h);
     ctx.restore();
+  }
+  _floater(x, y, text, color) { this.floaters.push({ x: x, y: y, text: text, color: color, life: 1.1 }); }
+  _burst(x, y, color, n) {
+    for (var bi = 0; bi < n; bi++) {
+      var a = Math.random() * 6.283, s = 60 + Math.random() * 170;
+      this.bursts.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40, r: 2 + Math.random() * 3, life: 0.5 + Math.random() * 0.4, color: color });
+    }
   }
   _drawBg(ctx) {
     var bg = this._img('bg');
@@ -244,6 +270,19 @@ class Game {
     // اللاعب + توهّجه
     this._drawPlayerGlow(ctx);
     this._drawPlayer(ctx);
+    // تأثيرات (جسيمات + نصوص)
+    var bi, b;
+    for (bi = 0; bi < this.bursts.length; bi++) {
+      b = this.bursts[bi]; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.max(0, b.life); ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); ctx.restore();
+    }
+    ctx.textAlign = 'center'; ctx.font = 'bold 19px sans-serif';
+    for (bi = 0; bi < this.floaters.length; bi++) {
+      b = this.floaters[bi]; ctx.save(); ctx.globalAlpha = Math.max(0, b.life);
+      ctx.fillStyle = b.color; ctx.fillText(b.text, b.x, b.y); ctx.restore();
+    }
+    ctx.textAlign = 'left';
   }
   _drawTorch(ctx, t) {
     var fx = t.x, fy = t.y - 54 + Math.sin(this.time * 9 + t.x) * 3;
@@ -270,9 +309,10 @@ class Game {
   _drawGuardian(ctx, h) {
     var ex = h.x + h.w / 2, ey = h.y + 12;
     var base = h.dir > 0 ? 0 : Math.PI, a0 = base - h.fov, a1 = base + h.fov;
+    var stalk = h.chaseMul > 2;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     var g = ctx.createRadialGradient(ex, ey, 4, ex, ey, h.visionRange);
-    g.addColorStop(0, h.seeing ? 'rgba(255,60,60,0.30)' : 'rgba(255,200,80,0.12)');
+    g.addColorStop(0, h.seeing ? 'rgba(255,60,60,0.32)' : (stalk ? 'rgba(255,90,60,0.18)' : 'rgba(255,200,80,0.12)'));
     g.addColorStop(1, 'rgba(255,120,40,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.arc(ex, ey, h.visionRange, a0, a1); ctx.closePath(); ctx.fill();
     ctx.restore();
@@ -340,22 +380,18 @@ class Game {
     ctx.save(); ctx.globalAlpha = cloaked ? 0.3 : 1;
     var cx = x + w / 2, cy = y + h / 2;
     var bob = Math.sin(t * 6) * 1.5;
-    // هالة بدلة
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     var gg = ctx.createRadialGradient(cx, cy, 4, cx, cy, 30);
     gg.addColorStop(0, 'rgba(120,255,200,0.35)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(cx, cy, 30, 0, 7); ctx.fill();
     ctx.restore();
-    // جسم بتدرّج
     var bg = ctx.createLinearGradient(cx, cy - h / 2, cx, cy + h / 2);
     bg.addColorStop(0, '#a8ffd0'); bg.addColorStop(1, '#5fe0a0');
     ctx.fillStyle = bg; ctx.beginPath(); ctx.ellipse(cx, cy + 4 + bob, w / 2, h / 2 - 2, 0, 0, 7); ctx.fill();
     ctx.fillStyle = '#d8ffe9'; ctx.beginPath(); ctx.ellipse(cx, cy + 10 + bob, w / 3, h / 3, 0, 0, 7); ctx.fill();
-    // هوائيات
     ctx.strokeStyle = '#7CFFB2'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(cx - 6, y + 4); ctx.lineTo(cx - 10, y - 8); ctx.moveTo(cx + 6, y + 4); ctx.lineTo(cx + 10, y - 8); ctx.stroke();
     ctx.fillStyle = '#ff7ce0'; ctx.beginPath(); ctx.arc(cx - 10, y - 9, 3, 0, 7); ctx.arc(cx + 10, y - 9, 3, 0, 7); ctx.fill();
-    // عيون
     var ex = facing >= 0 ? 4 : -4;
     ctx.fillStyle = '#fff'; ctx.beginPath();
     ctx.ellipse(cx + ex - 6, cy - 2, 6, 8, 0, 0, 7); ctx.ellipse(cx + ex + 6, cy - 2, 6, 8, 0, 0, 7); ctx.fill();
@@ -379,6 +415,10 @@ class Game {
     var g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.35, this.W / 2, this.H / 2, this.H * 0.75);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.W, this.H);
+    if (this.detection > 50) {
+      var a = (this.detection - 50) / 50 * 0.35 * (0.6 + 0.4 * Math.sin(this.time * 18));
+      ctx.fillStyle = 'rgba(255,30,30,' + a.toFixed(3) + ')'; ctx.fillRect(0, 0, this.W, this.H);
+    }
   }
   _bar(ctx, x, y, w, h, frac, color, label) {
     frac = clamp(frac, 0, 1);
@@ -390,9 +430,10 @@ class Game {
     ctx.fillStyle = 'rgba(10,8,6,0.5)'; ctx.fillRect(0, 0, this.W, 84);
     ctx.strokeStyle = 'rgba(255,200,120,0.25)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 84); ctx.lineTo(this.W, 84); ctx.stroke();
     var pad = 12, y = 14, bw = this.W * 0.42;
+    var a2 = this.combo > 1 ? '  x' + this.combo : '';
     this._bar(ctx, pad, y, bw, 14, this.collected / this.totalParts, '#ffd24a', 'الإصلاح ' + this.collected + '/' + this.totalParts);
     this._bar(ctx, pad, y + 26, bw, 14, this.player.energy / this.player.maxEnergy, '#39d0ff', 'الطاقة');
-    this._bar(ctx, pad, y + 52, bw, 14, this.detection / 100, this.detection > 60 ? '#ff5050' : '#ff9f43', 'الكشف');
+    this._bar(ctx, pad, y + 52, bw, 14, this.detection / 100, this.detection > 60 ? '#ff5050' : '#ff9f43', 'الكشف' + a2);
     ctx.fillStyle = '#ffe9b0'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText('النقاط: ' + this.score, this.W - pad, y + 14);
     ctx.fillText('المحاولات: ' + this.lives, this.W - pad, y + 40);

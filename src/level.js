@@ -38,6 +38,9 @@ function buildLevel(H) {
     new Human(2050, groundTop - 54, 120),
     new Human(3050, groundTop - 54, 120)
   ];
+  // مطاردان أسرع وأوسع رؤية لزيادة الإثارة
+  humans[1].speed = 135; humans[1].visionRange = 360; humans[1].fov = 0.85; humans[1].chaseMul = 2.6;
+  humans[3].speed = 125; humans[3].visionRange = 340; humans[3].chaseMul = 2.3;
 
   var cams = [
     new Cam(1000, 64, Math.PI / 2, 320),

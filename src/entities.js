@@ -18,7 +18,6 @@ class Player {
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
 
   update(dt, input, level, game) {
-    // القدرات
     this.cloaked = input.cloakHeld && this.energy > 0 && !this.morphed;
     if (input.consumeMorph()) {
       if (this.morphed) { this.morphed = false; }
@@ -29,7 +28,6 @@ class Player {
       else if (this.gravityDir === -1) { this.gravityDir = 1; sfx('gravity'); }
     }
 
-    // الحركة الأفقية (لا حركة أثناء التحول)
     var move = 0;
     if (!this.morphed) {
       if (input.left) move -= 1;
@@ -38,19 +36,15 @@ class Player {
     this.vx = move * this.speed;
     if (move !== 0) this.facing = move;
 
-    // الجاذبية
     var G = 1500;
     this.vy += G * this.gravityDir * dt;
     var MAXFALL = 700;
     this.vy = clamp(this.vy, -MAXFALL, MAXFALL);
-
-    // القفز (عكس اتجاه الجاذبية)
     if (input.consumeJump() && this.onGround && !this.morphed) {
       this.vy = this.jump * this.gravityDir;
       this.onGround = false; sfx('jump');
     }
 
-    // التصادم الأفقي
     this.x += this.vx * dt;
     var i, p;
     for (i = 0; i < level.platforms.length; i++) {
@@ -61,41 +55,32 @@ class Player {
         this.vx = 0;
       }
     }
-
-    // التصادم الرأسي
     this.y += this.vy * dt;
     this.onGround = false;
     for (i = 0; i < level.platforms.length; i++) {
       p = level.platforms[i];
       if (aabb(this.aabb(), p)) {
-        if (this.vy * this.gravityDir > 0) {            // هبوط على سطح
+        if (this.vy * this.gravityDir > 0) {
           this.y = this.gravityDir > 0 ? p.y - this.h : p.y + p.h;
           this.vy = 0; this.onGround = true;
-        } else if (this.vy * this.gravityDir < 0) {     // ارتطام بالسطح المقابل
+        } else if (this.vy * this.gravityDir < 0) {
           this.y = this.gravityDir > 0 ? p.y + p.h : p.y - this.h;
           this.vy = 0;
         }
       }
     }
 
-    // الطاقة: استهلاك القدرات أو إعادة الشحن
     var drain = 0;
     if (this.cloaked) drain += 22;
     if (this.morphed) drain += 10;
     if (this.gravityDir === -1) drain += 8;
     if (drain > 0) {
       this.energy = Math.max(0, this.energy - drain * dt);
-      if (this.energy === 0) {
-        this.cloaked = false;
-        if (this.gravityDir === -1) this.gravityDir = 1;
-      }
+      if (this.energy === 0) { this.cloaked = false; if (this.gravityDir === -1) this.gravityDir = 1; }
     } else {
       this.energy = Math.min(this.maxEnergy, this.energy + 14 * dt);
     }
-
     this.animT += dt;
-
-    // السقوط في حفرة أو خارج العالم
     if (this.y > level.worldH + 220 || this.y < -340) game.respawn();
   }
 }
@@ -107,13 +92,13 @@ class Human {
     this.patrolMin = x - range; this.patrolMax = x + range;
     this.speed = 70;
     this.visionRange = 270; this.fov = 0.62;
-    this.state = 'patrol'; this.chaseT = 0; this.seeing = false;
+    this.state = 'patrol'; this.chaseT = 0; this.chaseMul = 1.7; this.seeing = false;
   }
   update(dt, player) {
     if (this.state === 'chase') {
       var dx = (player.x + player.w / 2) - (this.x + this.w / 2);
       this.dir = Math.sign(dx) || this.dir;
-      this.x += this.dir * this.speed * 1.7 * dt;
+      this.x += this.dir * this.speed * this.chaseMul * dt;
       this.chaseT -= dt;
       if (this.chaseT <= 0) this.state = 'patrol';
     } else {
@@ -121,7 +106,6 @@ class Human {
       if (this.x < this.patrolMin) { this.x = this.patrolMin; this.dir = 1; }
       if (this.x > this.patrolMax) { this.x = this.patrolMax; this.dir = -1; }
     }
-    // الرؤية
     this.seeing = false;
     if (!player.hidden) {
       var ex = this.x + this.w / 2, ey = this.y + 12;
@@ -133,7 +117,7 @@ class Human {
         if (Math.abs(angDiff(ang, face)) < this.fov) this.seeing = true;
       }
     }
-    if (this.seeing) { this.state = 'chase'; this.chaseT = 1.6; }
+    if (this.seeing) { this.state = 'chase'; this.chaseT = 2.2; }
   }
 }
 

@@ -15,6 +15,8 @@
     padding:0 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;
     pointer-events:none;z-index:10;}
   .cluster{display:flex;gap:12px;align-items:flex-end;pointer-events:auto;}
+  .left{flex-direction:column;align-items:flex-start;}
+  .right{display:grid;grid-template-columns:repeat(2,62px);gap:10px;justify-content:flex-end;}
   .btn{width:66px;height:66px;border-radius:18px;border:2px solid rgba(255,255,255,.25);
     background:rgba(255,255,255,.08);color:#fff;font-size:28px;display:flex;align-items:center;
     justify-content:center;user-select:none;backdrop-filter:blur(4px);
@@ -33,9 +35,9 @@
   <div class="cluster left">
     <div class="btn" id="btn-left">&#9664;</div>
     <div class="btn" id="btn-right">&#9654;</div>
-    <div class="btn" id="btn-jump">&#10514;</div>
   </div>
   <div class="cluster right">
+    <div class="btn small" id="btn-jump">&#10514;</div>
     <div class="btn small" id="btn-cloak">&#128123;</div>
     <div class="btn small" id="btn-morph">&#129504;</div>
     <div class="btn small" id="btn-gravity">&#128255;</div>

@@ -88,8 +88,6 @@ class Game {
     this.room=0; this.roomSolved=false; this.solvedT=0;
     this.rooms=['أصلح الدائرة','افتح قفل الرموز','اصطف الحلقات'];
     this.circuit=null; this.lock=null; this.rings=null;
-    this.img=new Image(); this.img.crossOrigin='anonymous';
-    this.img.src='https://raw.githubusercontent.com/apoadam1209-beep/-/arena/01a0623b-repo/assets/bg_ship.png';
     var self=this;
     this._resize(); window.addEventListener('resize',function(){self._resize();});
     canvas.addEventListener('pointerdown',function(e){self._onTap(e);});
@@ -174,9 +172,7 @@ class Game {
   /* ===================== الرسم ===================== */
   render(){
     var ctx=this.ctx,W=this.W,H=this.H; ctx.setTransform(this.dpr,0,0,this.dpr,0,0); ctx.clearRect(0,0,W,H);
-    if(this.img.complete&&this.img.naturalWidth){ var s=Math.max(W/this.img.naturalWidth,H/this.img.naturalHeight);
-      ctx.drawImage(this.img,(W-this.img.naturalWidth*s)/2,(H-this.img.naturalHeight*s)/2,this.img.naturalWidth*s,this.img.naturalHeight*s); }
-    else { ctx.fillStyle='#05060c'; ctx.fillRect(0,0,W,H); }
+    this._bg(ctx);
     if(this.state==='title'){ this._title(ctx); return; }
     if(this.state==='win'){ this._win(ctx); return; }
     if(this.room===0) this._drawCircuit(ctx);
@@ -261,6 +257,20 @@ class Game {
       ctx.beginPath(); ctx.arc(g.cx,g.cy,rad,ang-0.32,ang+0.32); ctx.stroke(); ctx.restore();
     }
     ctx.fillStyle='rgba(255,210,74,0.9)'; ctx.beginPath(); ctx.arc(g.cx,g.cy,8,0,7); ctx.fill();
+  }
+  _bg(ctx){
+    var W=this.W,H=this.H;
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#070a16'); g.addColorStop(0.6,'#0b1226'); g.addColorStop(1,'#0a0f1e');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(80,140,200,0.06)'; ctx.lineWidth=1; var st=46;
+    for(var x=0;x<W;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(var y=0;y<H;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(var i=0;i<5;i++){ var sx=(i*173.3)%W, sy=(i*97.7)%(H*0.6);
+      var rg=ctx.createRadialGradient(sx,sy,2,sx,sy,90); rg.addColorStop(0,'rgba(60,160,200,0.10)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=rg; ctx.fillRect(sx-90,sy-90,180,180); }
+    ctx.restore();
   }
   _rr(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
   _title(ctx){ var W=this.W,H=this.H; ctx.fillStyle='rgba(4,6,12,0.78)'; ctx.fillRect(0,0,W,H);

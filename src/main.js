@@ -1,4 +1,3 @@
-import './style.css';
 import { Game } from './Game.js';
 
 const canvas = document.getElementById('game-canvas');

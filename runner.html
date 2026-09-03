@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ZUGO RUN</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05060c;
+    font-family:'Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif;touch-action:none;}
+  #game{position:fixed;inset:0;display:block;background:#05060c;}
+  .hint{position:fixed;top:8px;left:50%;transform:translateX(-50%);
+    color:#bfe7ff;font-size:12px;opacity:.85;z-index:10;pointer-events:none;text-align:center;width:94%;}
+  .controls{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,14px);
+    padding:0 16px 16px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none;z-index:10;}
+  .cluster{display:flex;gap:12px;pointer-events:auto;}
+  .btn{width:66px;height:66px;border-radius:18px;border:2px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.08);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;
+    user-select:none;backdrop-filter:blur(4px);box-shadow:0 4px 14px rgba(0,0,0,.45);}
+  .btn:active{transform:scale(.9);background:rgba(255,255,255,.24);}
+  .btn.small{width:58px;height:58px;font-size:24px;}
+  #b-jump{border-color:rgba(120,255,200,.8);}
+  #b-slide{border-color:rgba(255,180,90,.8);}
+  #b-left,#b-right{border-color:rgba(160,200,255,.8);}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hint" id="hint">مرّر أفقيًا لتبديل المسار · مرّر لأعلى للقفز · مرّر لأسفل للانزلاق</div>
+<div class="controls">
+  <div class="cluster">
+    <div class="btn" id="b-left">&#9664;</div>
+    <div class="btn" id="b-right">&#9654;</div>
+  </div>
+  <div class="cluster">
+    <div class="btn small" id="b-slide">&#10515;</div>
+    <div class="btn small" id="b-jump">&#10514;</div>
+  </div>
+</div>
+<script>
+/* ===== أدوات ===== */
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+/* ===== اللعبة ===== */
+class Game {
+  constructor(canvas){
+    this.canvas=canvas; this.ctx=canvas.getContext('2d');
+    this.W=0;this.H=0;this.dpr=1;this.state='title';this.time=0;this.shake=0;
+    this.best=0;
+    this.cities=[]; this.stars=[];
+    var self=this;
+    this._resize(); window.addEventListener('resize',function(){self._resize();});
+    canvas.addEventListener('pointerdown',function(e){self._down(e);});
+    canvas.addEventListener('pointerup',function(e){self._up(e);});
+    ['b-left','b-right','b-jump','b-slide'].forEach(function(id){
+      document.getElementById(id).addEventListener('pointerdown',function(e){e.preventDefault();self._btn(id);});
+    });
+    this.last=performance.now(); requestAnimationFrame(function(t){self._frame(t);});
+    window.__game=this;
+  }
+  _resize(){
+    var w=window.innerWidth,h=window.innerHeight; this.dpr=Math.min(window.devicePixelRatio||1,2);
+    this.canvas.width=Math.floor(w*this.dpr); this.canvas.height=Math.floor(h*this.dpr);
+    this.canvas.style.width=w+'px'; this.canvas.style.height=h+'px'; this.W=w; this.H=h;
+    // مدينة بعيدة + نجوم (مرة واحدة)
+    this.cities=[]; var x=0; while(x<w*1.5){ var bw=10+Math.random()*26, bh=30+Math.random()*120; this.cities.push({x:x,bw:bw,bh:bh,lit:Math.random()<0.5}); x+=bw+4+Math.random()*10; }
+    this.stars=[]; for(var i=0;i<70;i++) this.stars.push({x:Math.random()*w,y:Math.random()*h*0.4,r:Math.random()*1.6});
+  }
+  start(){ this.state='play'; this.dist=0; this.speed=260; this.crystals=0; this.lives=3;
+    this.lane=1; this.px=this._laneX(this.lane,1); this.jumpT=0; this.slideT=0; this.invuln=0;
+    this.obst=[]; this.pick=[]; this.spawnT=0; this.chaser=1; this.scroll=0; this.over=null; }
+  _frame(now){var dt=(now-this.last)/1000;this.last=now;if(dt<0)dt=0;if(dt>0.033)dt=0.033;this.time+=dt;this.update(dt);this.render();var s=this;requestAnimationFrame(function(t){s._frame(t);});}
+  /* إحداثيات المنظور */
+  _laneX(lane,z){ var tx=[this.W*0.43,this.W*0.5,this.W*0.57], bx=[this.W*0.16,this.W*0.5,this.W*0.84]; return lerp(tx[lane],bx[lane],z); }
+  _laneY(z){ return lerp(this.H*0.22,this.H*0.82,z); }
+  _btn(id){ if(this.state==='title'){this.start();return;} if(this.state==='over'){this.start();return;} if(id==='b-left')this._move(-1); else if(id==='b-right')this._move(1); else if(id==='b-jump')this._jump(); else if(id==='b-slide')this._slide(); }
+  _move(d){ if(this.state!=='play')return; this.lane=clamp(this.lane+d,0,2); }
+  _jump(){ if(this.state!=='play'||this.jumpT>0)return; this.jumpT=0.62; }
+  _slide(){ if(this.state!=='play'||this.slideT>0)return; this.slideT=0.55; }
+  _down(e){ this._sx=e.clientX; this._sy=e.clientY; this._st=Date.now(); }
+  _up(e){ if(this.state!=='play')return; var dx=e.clientX-this._sx, dy=e.clientY-this._sy;
+    if(Math.abs(dx)<24&&Math.abs(dy)<24){ this._jump(); return; }
+    if(Math.abs(dx)>Math.abs(dy)){ this._move(dx>0?1:-1); } else { if(dy<0) this._jump(); else this._slide(); } }
+  update(dt){
+    if(this.state!=='play') return;
+    this.speed=Math.min(620, 260 + this.dist*0.02);
+    this.dist += this.speed*dt; this.scroll += this.speed*dt;
+    if(this.shake>0) this.shake-=dt*60;
+    if(this.invuln>0) this.invuln-=dt;
+    // توقيت القفز/الانزلاق
+    if(this.jumpT>0) this.jumpT-=dt; if(this.slideT>0) this.slideT-=dt;
+    this.px = lerp(this.px, this._laneX(this.lane,1), Math.min(1,dt*14));
+    // المطارد يتعافى ببطء
+    this.chaser = Math.min(1, this.chaser + dt*0.05);
+    // توليد العوائق
+    this.spawnT-=dt;
+    if(this.spawnT<=0){ this.spawnT = Math.max(0.55, 1.3 - this.dist*0.0006);
+      var lane=Math.floor(Math.random()*3), r=Math.random();
+      var type = r<0.4?'low':(r<0.75?'high':'block');
+      this.obst.push({lane:lane,z:0,type:type,done:false});
+      if(Math.random()<0.5){ var pl=Math.floor(Math.random()*3); this.pick.push({lane:pl,z:0,taken:false}); }
+    }
+    // تحريك العوائق + تصادم
+    for(var i=this.obst.length-1;i>=0;i--){ var o=this.obst[i]; o.z+=dt*(this.speed/300);
+      if(o.z>=0.9 && !o.done && o.lane===this.lane){
+        var hit=false;
+        if(o.type==='block') hit=true;
+        else if(o.type==='low' && this.jumpT<=0) hit=true;
+        else if(o.type==='high' && this.slideT<=0) hit=true;
+        if(hit && this.invuln<=0){ this._hit(); }
+        o.done=true;
+      }
+      if(o.z>1.15) this.obst.splice(i,1);
+    }
+    for(var j=this.pick.length-1;j>=0;j--){ var p=this.pick[j]; p.z+=dt*(this.speed/300);
+      if(p.z>=0.9 && !p.taken && p.lane===this.lane && this.invuln<=0 && this.jumpT<=0){
+        // يُجمع فقط إن لم يكن عائق بنفس المسار قريب — نجمعه ببساطة عند المرور
+        p.taken=true; this.crystals++; this.dist+=40;
+      }
+      if(p.z>1.15) this.pick.splice(j,1);
+    }
+    if(this.chaser<=0){ this.state='over'; if(this.dist>this.best)this.best=this.dist; }
+  }
+  _hit(){ this.lives--; this.invuln=1.1; this.shake=14; this.chaser-=0.34;
+    if(this.lives<=0){ this.state='over'; if(this.dist>this.best)this.best=this.dist; } }
+  /* ===================== الرسم ===================== */
+  render(){
+    var ctx=this.ctx,W=this.W,H=this.H; ctx.setTransform(this.dpr,0,0,this.dpr,0,0); ctx.clearRect(0,0,W,H);
+    this._bg(ctx);
+    if(this.state==='title'){ this._title(ctx); return; }
+    if(this.state==='over'){ this._bg(ctx); this._world(ctx); this._over(ctx); return; }
+    this._world(ctx);
+    // HUD
+    ctx.fillStyle='rgba(6,10,22,0.55)'; ctx.fillRect(0,0,W,52);
+    ctx.fillStyle='#ffe9b0'; ctx.font='bold 17px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('المسافة: '+Math.floor(this.dist)+'م',12,22);
+    ctx.fillText('💎 '+this.crystals,12,42);
+    ctx.textAlign='right';
+    for(var h=0;h<3;h++){ ctx.fillStyle = h<this.lives?'#ff5a7a':'rgba(255,255,255,0.2)'; ctx.font='20px sans-serif'; ctx.fillText('♥',W-14-h*22,30); }
+    ctx.textAlign='left';
+    // خطر المطارد
+    if(this.chaser<0.7){ var a=(0.7-this.chaser)/0.7*(0.4+0.3*Math.sin(this.time*16)); ctx.fillStyle='rgba(255,30,30,'+a.toFixed(3)+')'; ctx.fillRect(0,0,W,H); }
+  }
+  _bg(ctx){ var W=this.H?this.W:0, H=this.H; ctx.save();
+    var g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0a0a22'); g.addColorStop(0.5,'#191038'); g.addColorStop(1,'#0c0a18');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // نجوم
+    ctx.fillStyle='rgba(255,255,255,0.7)'; for(var i=0;i<this.stars.length;i++){ var s=this.stars[i]; ctx.globalAlpha=0.4+0.6*Math.abs(Math.sin(this.time*2+i)); ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    // مدينة بعيدة
+    var off=(this.scroll*0.05)%W; for(var k=0;k<2;k++){ var ox=-off+k*W; for(var c=0;c<this.cities.length;c++){ var b=this.cities[c];
+      ctx.fillStyle='#0d1030'; ctx.fillRect(ox+b.x, H*0.20-b.bh, b.bw, b.bh);
+      if(b.lit){ ctx.fillStyle='rgba(255,210,120,0.5)'; ctx.fillRect(ox+b.x+2, H*0.20-b.bh+6, 2,2); } } }
+    ctx.restore();
+    // طريق بمسار المنظور
+    var topY=H*0.22, botY=H*0.86, topW=W*0.20, botW=W*0.94, cx=W/2;
+    ctx.fillStyle='#15151f'; ctx.beginPath(); ctx.moveTo(cx-topW/2,topY); ctx.lineTo(cx+topW/2,topY); ctx.lineTo(cx+botW/2,botY); ctx.lineTo(cx-botW/2,botY); ctx.closePath(); ctx.fill();
+    // خطوط المسارات المتقطعة
+    ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=3;
+    var bnd=[0.5,1.5]; for(var b=0;b<bnd.length;b++){ var f=bnd[b];
+      var tx=lerp(this._laneX(0,0),this._laneX(2,0),f/2), bx=lerp(this._laneX(0,1),this._laneX(2,1),f/2);
+      this._dashLine(ctx,tx,topY,bx,botY,14,18,-(this.scroll%32)); }
+  }
+  _dashLine(ctx,x1,y1,x2,y2,dash,gap,off){
+    var dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),ux=dx/len,uy=dy/len;
+    var pos=off%(dash+gap); if(pos<0)pos+=dash+gap;
+    for(var d=pos; d<len; d+=dash+gap){
+      var x3=x1+ux*d, y3=y1+uy*d, x4=x1+ux*Math.min(d+dash,len), y4=y1+uy*Math.min(d+dash,len);
+      ctx.beginPath(); ctx.moveTo(x3,y3); ctx.lineTo(x4,y4); ctx.stroke();
+    }
+  }
+  _world(ctx){
+    var sh=this.shake?this.shake:0, sx=(Math.random()-0.5)*sh, sy=(Math.random()-0.5)*sh;
+    ctx.save(); ctx.translate(sx,sy);
+    // العوائق (البعيدة أولًا)
+    var sorted=this.obst.slice().sort(function(a,b){return a.z-b.z;});
+    for(var i=0;i<sorted.length;i++) this._drawObst(ctx,sorted[i]);
+    // البلورات
+    for(var p=0;p<this.pick.length;p++){ var pk=this.pick[p]; if(pk.taken)continue; this._drawCrystal(ctx,pk); }
+    // اللاعب
+    this._drawPlayer(ctx);
+    ctx.restore();
+  }
+  _drawObst(ctx,o){ var x=this._laneX(o.lane,o.z), y=this._laneY(o.z), sc=lerp(0.4,1.15,o.z);
+    ctx.save(); ctx.translate(x,y); ctx.scale(sc,sc);
+    if(o.type==='low'){ ctx.fillStyle='#5b3b2a'; ctx.fillRect(-22,-44,44,44); ctx.fillStyle='#7a5238'; ctx.fillRect(-22,-44,44,8);
+      ctx.fillStyle='#ff8a3c'; ctx.fillRect(-18,-40,36,4); }
+    else if(o.type==='high'){ ctx.fillStyle='#3a3f55'; ctx.fillRect(-30,-96,60,18); ctx.fillStyle='#ffcf6b'; ctx.fillRect(-30,-96,60,4); }
+    else { ctx.fillStyle='#222a3a'; ctx.fillRect(-20,-70,40,70); ctx.fillStyle='#39d0ff'; ctx.fillRect(-20,-70,40,6); }
+    ctx.restore();
+  }
+  _drawCrystal(ctx,pk){ var x=this._laneX(pk.lane,pk.z), y=this._laneY(pk.z)-lerp(20,46,pk.z), sc=lerp(0.4,1.1,pk.z);
+    ctx.save(); ctx.translate(x,y); ctx.scale(sc,sc); ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle='#39e0ff'; ctx.shadowColor='#39e0ff'; ctx.shadowBlur=14;
+    ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(12,0); ctx.lineTo(0,14); ctx.lineTo(-12,0); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  _drawPlayer(ctx){
+    var x=this.px, y=this._laneY(1);
+    var jy = this.jumpT>0 ? -Math.sin((1-this.jumpT/0.62)*Math.PI)*70 : 0;
+    var sliding=this.slideT>0;
+    ctx.save(); ctx.translate(x, y+jy);
+    if(this.invuln>0 && Math.floor(this.time*20)%2===0) ctx.globalAlpha=0.4;
+    var bob=Math.sin(this.time*16)*3;
+    var h = sliding?20:46, w=sliding?52:34;
+    // هالة
+    ctx.save(); ctx.globalCompositeOperation='lighter'; var gg=ctx.createRadialGradient(0,0,2,0,0,40); gg.addColorStop(0,'rgba(120,255,200,0.4)'); gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,0,40,0,7); ctx.fill(); ctx.restore();
+    // جسم
+    var bg=ctx.createLinearGradient(0,-h/2,0,h/2); bg.addColorStop(0,'#a8ffd0'); bg.addColorStop(1,'#5fe0a0');
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.ellipse(0,bob, w/2, h/2, 0,0,7); ctx.fill();
+    // عيون
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(-7,bob-4,5,7,0,0,7); ctx.ellipse(7,bob-4,5,7,0,0,7); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(-7+3,bob-3,2.5,0,7); ctx.arc(7+3,bob-3,2.5,0,7); ctx.fill();
+    // هوائيات
+    ctx.strokeStyle='#7CFFB2'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-5,-h/2+bob); ctx.lineTo(-9,-h/2-10+bob); ctx.moveTo(5,-h/2+bob); ctx.lineTo(9,-h/2-10+bob); ctx.stroke();
+    ctx.restore();
+  }
+  _title(ctx){ var W=this.W,H=this.H; ctx.fillStyle='rgba(4,6,12,0.7)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center'; ctx.fillStyle='#9affc8'; ctx.font='bold 46px sans-serif'; ctx.fillText('ZUGO RUN',W/2,H*0.34);
+    ctx.fillStyle='#ffe9b0'; ctx.font='bold 20px sans-serif'; ctx.fillText('الهروب اللانهائي 🏃',W/2,H*0.34+34);
+    ctx.fillStyle='#cbd'; ctx.font='14px sans-serif'; ctx.fillText('اهرب عبر الأرض وجمع البلورات وهرب من المطارد!',W/2,H*0.48,W*0.82,22);
+    var blink=0.5+0.5*Math.sin(this.time*4); ctx.globalAlpha=blink; ctx.fillStyle='#ffd24a'; ctx.font='bold 22px sans-serif'; ctx.fillText('انقر للعب',W/2,H*0.70); ctx.globalAlpha=1; ctx.textAlign='left'; }
+  _over(ctx){ var W=this.W,H=this.H; ctx.fillStyle='rgba(30,5,10,0.78)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center'; ctx.fillStyle='#ff6b6b'; ctx.font='bold 32px sans-serif'; ctx.fillText('انتهى الهرب! 🚨',W/2,H*0.38);
+    ctx.fillStyle='#fff'; ctx.font='18px sans-serif'; ctx.fillText('المسافة: '+Math.floor(this.dist)+'م · 💎 '+this.crystals,W/2,H*0.38+34);
+    ctx.fillStyle='#ffd24a'; ctx.font='16px sans-serif'; ctx.fillText('أفضل مسافة: '+Math.floor(this.best)+'م',W/2,H*0.38+62);
+    var blink=0.5+0.5*Math.sin(this.time*4); ctx.globalAlpha=blink; ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif'; ctx.fillText('انقر للعب مجددًا',W/2,H*0.70); ctx.globalAlpha=1; ctx.textAlign='left'; }
+}
+window.addEventListener('load',function(){ new Game(document.getElementById('game')); });
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>NEXUS SHIFTER | متحوّل النيكسوس</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hud hidden">
+      <div class="hud-top">
+        <div class="hud-score">
+          <span data-i18n="score"></span><span><b id="score">0</b></span>
+        </div>
+        <div class="hud-distance">
+          <span data-i18n="distance"></span><b id="distance">0</b>
+        </div>
+        <div class="hud-combo">
+          <span class="combo-badge" id="combo">×1</span>
+        </div>
+      </div>
+
+      <div class="hud-dna" title="DNA">
+        <span id="dna-icon">🧬</span><b id="dna">0</b>
+      </div>
+
+      <div class="hud-lives" id="lives">❤❤❤</div>
+
+      <div class="form-panel">
+        <div class="form-btn" id="form-plasma" data-form="plasma">
+          <span class="form-orb"></span>
+          <span data-i18n="form_plasma"></span>
+        </div>
+        <div class="form-btn" id="form-crystal" data-form="crystal">
+          <span class="form-orb"></span>
+          <span data-i18n="form_crystal"></span>
+        </div>
+        <div class="form-btn" id="form-shadow" data-form="shadow">
+          <span class="form-orb"></span>
+          <span data-i18n="form_shadow"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu -->
+    <div id="menu" class="overlay">
+      <div class="menu-card">
+        <div class="language-switch">
+          <button id="btn-lang" class="lang-btn" type="button">EN</button>
+        </div>
+        <h1 class="title-orb">NEXUS<br /><span>SHIFTER</span></h1>
+        <p class="tagline" data-i18n="tagline"></p>
+        <button id="btn-start" class="btn-primary" type="button" data-i18n="start"></button>
+        <div class="controls">
+          <div class="control-row">
+            <div class="keys"><kbd>◀</kbd><kbd>▶</kbd></div>
+            <span data-i18n="lane_move"></span>
+          </div>
+          <div class="control-row">
+            <div class="keys"><kbd>␣</kbd></div>
+            <span data-i18n="jump"></span>
+          </div>
+          <div class="control-row">
+            <div class="keys"><kbd>↓</kbd></div>
+            <span data-i18n="slide"></span>
+          </div>
+          <div class="control-row">
+            <div class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></div>
+            <span data-i18n="forms"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameover" class="overlay hidden">
+      <div class="menu-card">
+        <h1 class="gameover-title" data-i18n="gameover"></h1>
+        <p class="final-line"><span data-i18n="final_score"></span><b id="final-score">0</b></p>
+        <p class="final-line"><span data-i18n="final_distance"></span><b id="final-distance">0</b></p>
+        <p class="final-line"><span data-i18n="dna_collected"></span><b id="final-dna">0</b></p>
+        <button id="btn-restart" class="btn-primary" type="button" data-i18n="retry"></button>
+        <button id="btn-menu" class="btn-ghost" type="button" data-i18n="menu"></button>
+      </div>
+    </div>
+
+    <div id="touch-zone"></div>
+    <div id="toast"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

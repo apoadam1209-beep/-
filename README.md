@@ -46,6 +46,24 @@ npm run dev
 
 ثم افتح `http://localhost:5173`.
 
+## نشر مباشر عبر GitHub Pages
+
+يتم نشر اللعبة تلقائياً من فرع `arena/01a068a7-repo` عند بناء مجلد `docs/`:
+
+```bash
+npm run build   # ينشئ مجلد docs/ جاهزاً للنشر
+git add docs
+git commit -m "build: publish game to docs"
+git push origin arena/01a068a7-repo
+```
+
+الرابط المباشر بعد النشر:
+
+```
+https://apoadam1209-beep.github.io/-/
+```
+
+
 ## التطوير
 
 - `src/Game.js` — حلقة اللعبة، النقاط، الكاميرا، المؤثرات، الواجهة

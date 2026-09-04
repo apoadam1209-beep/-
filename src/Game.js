@@ -46,11 +46,11 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
+    this.renderer.toneMappingExposure = 1.28;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x060a18);
-    this.scene.fog = new THREE.Fog(0x0b0e2a, 10, 120);
+    this.scene.fog = new THREE.Fog(0x0b102a, 14, 145);
 
     // PBR environment map for realistic reflections / metal highlights
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -65,12 +65,12 @@ export class Game {
     this.camera.lookAt(0, 1.7, -10);
 
     // lights
-    const hemi = new THREE.HemisphereLight(0xbcd3ff, 0x14101a, 1.15);
+    const hemi = new THREE.HemisphereLight(0xcdd8ff, 0x201a26, 1.4);
     this.scene.add(hemi);
-    const amb = new THREE.AmbientLight(0xffffff, 0.18);
+    const amb = new THREE.AmbientLight(0xffffff, 0.3);
     this.scene.add(amb);
 
-    const dir = new THREE.DirectionalLight(0xfff4e0, 2.1);
+    const dir = new THREE.DirectionalLight(0xfff4e0, 2.8);
     dir.position.set(8, 18, -6);
     dir.castShadow = true;
     dir.shadow.mapSize.set(2048, 2048);
@@ -82,11 +82,11 @@ export class Game {
     dir.shadow.bias = -0.0004;
     this.scene.add(dir);
 
-    const rim = new THREE.DirectionalLight(0x7df9ff, 0.9);
+    const rim = new THREE.DirectionalLight(0x9fd8ff, 1.1);
     rim.position.set(-10, 8, 10);
     this.scene.add(rim);
 
-    const playerLight = new THREE.PointLight(0x36e0ff, 14, 14, 2);
+    const playerLight = new THREE.PointLight(0xfff0d8, 8, 12, 2);
     this.playerLight = playerLight;
     this.scene.add(playerLight);
 
@@ -94,7 +94,7 @@ export class Game {
     this.composer = new EffectComposer(this.renderer);
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.62, 0.8, 0.46);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.75, 0.5);
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
     this.vignettePass = new ShaderPass(this.vignetteShader());
@@ -129,6 +129,11 @@ export class Game {
       formPlasma: el('form-plasma'),
       formCrystal: el('form-crystal'),
       formShadow: el('form-shadow'),
+      touchControls: el('touch-controls'),
+      tcLeft: el('tc-left'),
+      tcRight: el('tc-right'),
+      tcJump: el('tc-jump'),
+      tcSlide: el('tc-slide'),
     };
 
     setLang(getLang());
@@ -155,6 +160,14 @@ export class Game {
       }
     }
 
+    this.ui.tcLeft.addEventListener('click', () => this.moveLane(-1));
+    this.ui.tcRight.addEventListener('click', () => this.moveLane(1));
+    this.ui.tcJump.addEventListener('click', () => this.jump());
+    this.ui.tcSlide.addEventListener('click', () => {
+      this.slide(true);
+      setTimeout(() => this.slide(false), 650);
+    });
+
     applyTranslations();
   }
 
@@ -162,9 +175,9 @@ export class Game {
     return {
       uniforms: {
         tDiffuse: { value: null },
-        uVig: { value: 0.42 },
-        uTan: { value: 0.14 },
-        uTint: { value: new THREE.Color(0x0b1233) },
+        uVig: { value: 0.28 },
+        uTan: { value: 0.06 },
+        uTint: { value: new THREE.Color(0x10182f) },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -225,6 +238,7 @@ export class Game {
     this.ui.menu.classList.add('hidden');
     this.ui.gameover.classList.add('hidden');
     this.ui.hud.classList.remove('hidden');
+    this.ui.touchControls.classList.remove('hidden');
     this.setForm('crystal', true);
     this.updateUI();
     this.time = 0;
@@ -250,6 +264,7 @@ export class Game {
     this.ui.menu.classList.remove('hidden');
     this.ui.gameover.classList.add('hidden');
     this.ui.hud.classList.add('hidden');
+    this.ui.touchControls.classList.add('hidden');
     this.player.y = this.player.baseY;
     this.player.vy = 0;
     this.targetLaneX = 0;
@@ -350,6 +365,7 @@ export class Game {
     this.ui.finalDna.textContent = this.dna;
     this.ui.gameover.classList.remove('hidden');
     this.ui.hud.classList.add('hidden');
+    this.ui.touchControls.classList.add('hidden');
     this.effects.burst(new THREE.Vector3(this.player.group.position.x, 1.6, 0), 0xff5c3d, 40, 2);
   }
 
@@ -414,19 +430,20 @@ export class Game {
       );
     }
 
-    // camera follow + shake
+    // camera follow + shake (camera stays centered so lane moves are obvious)
     const shakeX = this.cameraShake > 0 ? (Math.random() - 0.5) * this.cameraShake : 0;
     const shakeY = this.cameraShake > 0 ? (Math.random() - 0.5) * this.cameraShake : 0;
     if (this.cameraShake > 0) this.cameraShake = Math.max(0, this.cameraShake - dt * 2.2);
     const tilt = this.gravityScale < 1 ? 0.15 : 0;
+    const camTargetX = this.player.group.position.x * 0.16 + shakeX;
     this.camera.position.x = THREE.MathUtils.lerp(
       this.camera.position.x,
-      this.player.group.position.x * 0.55 + shakeX,
-      1 - Math.pow(0.01, dt)
+      camTargetX,
+      1 - Math.pow(0.001, dt)
     );
-    this.camera.position.y = 4.6 + shakeY;
-    this.camera.position.z = 9.6 - Math.sin(this.time * 0.7) * 0.25;
-    this.camera.lookAt(this.player.group.position.x * 0.65, 1.75, -10);
+    this.camera.position.y = 4.7 + shakeY;
+    this.camera.position.z = 9.8 - Math.sin(this.time * 0.7) * 0.25;
+    this.camera.lookAt(this.player.group.position.x * 0.2, 1.7, -10);
     this.camera.rotateZ(tilt);
 
     if (running) this.updateUI();

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./style.css" />
-    <script type="module" crossorigin src="./assets/index-CkAgLcQY.js"></script>
+    <script type="module" crossorigin src="./assets/index-6agC6b9c.js"></script>
   </head>
   <body>
     <canvas id="game-canvas"></canvas>
@@ -89,6 +89,15 @@
         <button id="btn-restart" class="btn-primary" type="button" data-i18n="retry"></button>
         <button id="btn-menu" class="btn-ghost" type="button" data-i18n="menu"></button>
       </div>
+    </div>
+
+    <div id="touch-controls" class="hidden">
+      <button class="tc-btn" id="tc-left" aria-label="left">◀</button>
+      <div class="tc-mid">
+        <button class="tc-btn" id="tc-jump" aria-label="jump">▲</button>
+        <button class="tc-btn" id="tc-slide" aria-label="slide">▼</button>
+      </div>
+      <button class="tc-btn" id="tc-right" aria-label="right">▶</button>
     </div>
 
     <div id="touch-zone"></div>

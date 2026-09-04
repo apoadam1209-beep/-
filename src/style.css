@@ -402,6 +402,61 @@ kbd {
   pointer-events: none;
 }
 
+#touch-controls {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 32;
+  pointer-events: auto;
+}
+
+#touch-controls.hidden { display: none; }
+
+.tc-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tc-btn {
+  width: 62px;
+  height: 62px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 18px;
+  background: rgba(16, 24, 46, 0.72);
+  color: #eaf6ff;
+  font-size: 22px;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(0, 240, 255, 0.16);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  font-family: inherit;
+}
+
+.tc-btn:active {
+  transform: scale(0.92);
+  background: rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 22px rgba(0, 240, 255, 0.5);
+}
+
+@media (max-width: 760px) {
+  #touch-controls {
+    bottom: 86px;
+    gap: 12px;
+  }
+  .tc-btn {
+    width: 54px;
+    height: 54px;
+    font-size: 19px;
+  }
+}
+
 @media (max-width: 760px) {
   .controls {
     grid-template-columns: 1fr;

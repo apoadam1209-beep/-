@@ -32,7 +32,7 @@ export class Player {
   constructor(scene) {
     this.scene = scene;
     this.form = 'crystal';
-    this.baseY = 0.85;
+    this.baseY = 1.42;
     this.y = this.baseY;
     this.vy = 0;
     this.gravity = -26;
@@ -56,35 +56,35 @@ export class Player {
   material() {
     const skin = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      roughness: 0.32,
-      metalness: 0.42,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.35,
+      roughness: 0.38,
+      metalness: 0.22,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.45,
       emissive: 0x000000,
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.35,
       bumpMap: this.noiseTex,
-      bumpScale: 0.045,
-      envMapIntensity: 1.2,
+      bumpScale: 0.05,
+      envMapIntensity: 0.55,
     });
     const shell = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      roughness: 0.18,
-      metalness: 0.72,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.18,
+      roughness: 0.3,
+      metalness: 0.5,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.3,
       transparent: true,
-      opacity: 0.96,
+      opacity: 1,
       emissive: 0x000000,
-      emissiveIntensity: 0.5,
-      envMapIntensity: 1.5,
+      emissiveIntensity: 0.32,
+      envMapIntensity: 0.7,
     });
     const dark = new THREE.MeshPhysicalMaterial({
-      color: 0x1b2130,
-      roughness: 0.32,
-      metalness: 0.75,
-      clearcoat: 0.7,
-      clearcoatRoughness: 0.3,
-      envMapIntensity: 1.0,
+      color: 0x232c3e,
+      roughness: 0.45,
+      metalness: 0.55,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.4,
+      envMapIntensity: 0.6,
     });
     const eye = new THREE.MeshPhysicalMaterial({
       color: 0x06121a,
@@ -92,16 +92,16 @@ export class Player {
       metalness: 0.35,
       clearcoat: 1,
       emissive: 0x7df9ff,
-      emissiveIntensity: 3.4,
+      emissiveIntensity: 2.2,
     });
     const glow = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       emissive: 0x7df9ff,
-      emissiveIntensity: 2.6,
+      emissiveIntensity: 1.8,
       roughness: 0.12,
       metalness: 0,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.9,
     });
     const seam = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -475,6 +475,9 @@ export class Player {
 
     const next = THREE.MathUtils.lerp(laneX, targetLaneX, 1 - Math.pow(0.0015, dt));
     this.group.position.x = next;
+    const lateralVel = (next - laneX) / Math.max(dt, 0.0001);
+    this.group.rotation.z = THREE.MathUtils.clamp(-lateralVel * 0.012, -0.26, 0.26);
+    this.group.rotation.z += (this.slideActive ? 0.1 : 0);
 
     const speed = running ? 1 : 0.35;
     const phase = t * 13 * speed;
@@ -521,7 +524,7 @@ export class Player {
     this.aura.scale.setScalar(1 + Math.sin(t * 4) * 0.1);
     this.core.scale.setScalar(1 + Math.sin(t * 5) * 0.14);
     const pulse = 2 + Math.sin(t * 5) * 0.9;
-    this.mats.glow.emissiveIntensity = pulse;
+    this.mats.glow.emissiveIntensity = 1.4 + Math.sin(t * 5) * 0.4;
 
     // wing flutter
     this.wings.rotation.y = 0.12 + Math.sin(t * 6) * (running ? 0.5 : 0.14);

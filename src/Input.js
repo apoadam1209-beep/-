@@ -15,6 +15,18 @@ export class Input {
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('pointercancel', (e) => this.onUp(e));
+
+    // robust mobile touch support
+    window.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      this.onDown({ target: e.target, clientX: t.clientX, clientY: t.clientY, preventDefault: () => e.preventDefault() });
+    }, { passive: false });
+    window.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      const ev = { clientX: t.clientX, clientY: t.clientY };
+      this.onMove(ev);
+    }, { passive: true });
+    window.addEventListener('touchend', () => this.onUp());
   }
 
   onKey(e) {
@@ -39,13 +51,13 @@ export class Input {
         this.game.slide(true);
         break;
       case 'Digit1':
-        this.game.setForm(this.game.forms.plasma);
+        this.game.setForm('plasma');
         break;
       case 'Digit2':
-        this.game.setForm(this.game.forms.crystal);
+        this.game.setForm('crystal');
         break;
       case 'Digit3':
-        this.game.setForm(this.game.forms.shadow);
+        this.game.setForm('shadow');
         break;
       default:
         break;

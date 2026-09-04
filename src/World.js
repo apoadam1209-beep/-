@@ -190,14 +190,14 @@ export class World {
     const geo = new THREE.BoxGeometry(44, 0.6, segDepth + 0.5);
     for (let i = 0; i < count; i++) {
       const mat = new THREE.MeshPhysicalMaterial({
-        color: 0x131a3a,
+        color: 0x1b2752,
         roughness: 0.62,
-        metalness: 0.35,
+        metalness: 0.3,
         clearcoat: 0.35,
-        clearcoatRoughness: 0.5,
+        clearcoatRoughness: 0.55,
         bumpMap: this.noiseTex,
-        bumpScale: 0.12,
-        envMapIntensity: 0.5,
+        bumpScale: 0.14,
+        envMapIntensity: 0.35,
       });
       const seg = new THREE.Mesh(geo, mat);
       seg.position.set(0, -0.3, (i - count / 2) * segDepth);
@@ -215,7 +215,7 @@ export class World {
           new THREE.MeshBasicMaterial({
             color: 0x36e0ff,
             transparent: true,
-            opacity: 0.65,
+            opacity: 0.35,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
           })
@@ -240,10 +240,10 @@ export class World {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const mat = new THREE.PointsMaterial({
       color: 0x7fb7ff,
-      size: 0.16,
+      size: 0.11,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.22,
       depthWrite: false,
     });
     this.dust = new THREE.Points(geo, mat);
@@ -254,7 +254,7 @@ export class World {
     this.themeIndex = ((index % THEMES.length) + THEMES.length) % THEMES.length;
     this.theme = THEMES[this.themeIndex];
     const t = this.theme;
-    this.scene.fog = new THREE.Fog(t.fog, 10, 120);
+    this.scene.fog = new THREE.Fog(t.fog, 14, 145);
     this.scene.background = new THREE.Color(t.fog);
     for (const seg of this.groundSegments) seg.material.color.setHex(t.ground);
     for (const strip of this.laneStrips) strip.material.color.setHex(t.accent);
@@ -296,8 +296,8 @@ export class World {
 
     if (t.key === 'city') {
       const winTex = makeWindowTexture(t.accent);
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a2a58, roughness: 0.55, metalness: 0.6, envMapIntensity: 0.8 });
-      const winMat = new THREE.MeshStandardMaterial({ map: winTex, emissive: t.accent, emissiveMap: winTex, emissiveIntensity: 1.2, roughness: 0.4, metalness: 0.3, transparent: true, opacity: 0.95 });
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a2a58, roughness: 0.65, metalness: 0.45, envMapIntensity: 0.4 });
+      const winMat = new THREE.MeshStandardMaterial({ map: winTex, emissive: t.accent, emissiveMap: winTex, emissiveIntensity: 0.8, roughness: 0.5, metalness: 0.2, envMapIntensity: 0.4, transparent: true, opacity: 0.95 });
       for (let i = 0; i < 38; i++) {
         const w = this.rand(1.4, 2.6);
         const h = this.rand(5, 22);
@@ -325,9 +325,9 @@ export class World {
         transparent: true,
         opacity: 0.86,
         metalness: 0.1,
-        roughness: 0.05,
+        roughness: 0.08,
         clearcoat: 1,
-        envMapIntensity: 1.6,
+        envMapIntensity: 0.9,
       });
       const iceMat2 = iceMat.clone();
       iceMat2.color.set(t.secondary);
@@ -348,7 +348,7 @@ export class World {
         this.make(cluster, x, 0, this.rand(-220, 40), mats);
       }
     } else if (t.key === 'volcano') {
-      const rockMat = new THREE.MeshStandardMaterial({ color: 0x321610, roughness: 0.92, metalness: 0.15, bumpMap: this.noiseTex, bumpScale: 0.2 });
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x3a1b13, roughness: 0.92, metalness: 0.1, bumpMap: this.noiseTex, bumpScale: 0.25, envMapIntensity: 0.35 });
       const lavaMat = new THREE.MeshBasicMaterial({ color: t.accent, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
       const lavaDark = new THREE.MeshBasicMaterial({ color: t.secondary, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false });
       for (let i = 0; i < 34; i++) {
@@ -373,9 +373,9 @@ export class World {
         color: t.accent,
         emissive: t.accent,
         emissiveIntensity: 1,
-        roughness: 0.45,
-        clearcoat: 0.6,
-        envMapIntensity: 1.1,
+        roughness: 0.5,
+        clearcoat: 0.5,
+        envMapIntensity: 0.65,
       });
       const stemMat = new THREE.MeshStandardMaterial({ color: 0x124825, roughness: 0.8, metalness: 0.1 });
       const leafMat = new THREE.MeshStandardMaterial({ color: 0x1c6a36, roughness: 0.7, side: THREE.DoubleSide });
@@ -402,7 +402,7 @@ export class World {
       }
     } else {
       // black hole debris station
-      const metal = new THREE.MeshPhysicalMaterial({ color: 0x33284f, roughness: 0.45, metalness: 0.9, envMapIntensity: 1.4 });
+      const metal = new THREE.MeshPhysicalMaterial({ color: 0x33284f, roughness: 0.55, metalness: 0.75, envMapIntensity: 0.7 });
       const glowMat = new THREE.MeshBasicMaterial({ color: t.secondary, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
       for (let i = 0; i < 30; i++) {
         const size = this.rand(0.8, 3.2);
@@ -768,8 +768,9 @@ export class World {
     const zOverlap = Math.abs(o.mesh.position.z - pz) < 0.62 + 0.42;
     if (!xOverlap || !zOverlap) return;
 
-    const playerTop = player.sliding ? 0.85 : player.y + 1.0;
-    const playerBottom = player.y - 0.55;
+    const playerBottom = player.y - 1.42;
+    const playerHeight = player.sliding ? 0.72 : 1.75;
+    const playerTop = playerBottom + playerHeight;
     const yOverlap = playerTop > o.bottom && playerBottom < o.top;
 
     if (o.pass && o.form) {

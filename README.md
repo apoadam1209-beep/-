@@ -48,19 +48,33 @@ npm run dev
 
 ## نشر مباشر عبر GitHub Pages
 
-يتم نشر اللعبة تلقائياً من فرع `arena/01a068a7-repo` عند بناء مجلد `docs/`:
+مجلد `docs/` جاهز للنشر على GitHUb Pages:
+
+1. اذهب إلى إعدادات المستودع:
+   `https://github.com/apoadam1209-beep/-/settings/pages`
+
+2. تحت **Build and deployment → Source** اختر:
+   `Deploy from a branch`
+
+3. اختر الفرع: `arena/01a068a7-repo` ‏(بدلاً من الفرع الآخر الظاهر حالياً)
+
+4. اختر المجلد: `/docs`
+
+5. اضغط **Save**.
+
+بعد عدة ثوانٍ، اللعبة تكون متاحة على:
+
+```
+https://apoadam1209-beep.github.io/-/
+```
+
+عند تحديث الكود، أعد البناء والرفع:
 
 ```bash
 npm run build   # ينشئ مجلد docs/ جاهزاً للنشر
 git add docs
 git commit -m "build: publish game to docs"
 git push origin arena/01a068a7-repo
-```
-
-الرابط المباشر بعد النشر:
-
-```
-https://apoadam1209-beep.github.io/-/
 ```
 
 

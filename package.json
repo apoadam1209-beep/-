@@ -1,0 +1,25 @@
+{
+  "name": "cosmic-runner",
+  "version": "1.0.0",
+  "description": "Nexus Shifter - a bilingual infinite alien runner built with Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "keywords": [
+    "game",
+    "threejs",
+    "runner",
+    "arabic"
+  ],
+  "author": "Arena.ai Agent",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2"
+  }
+}

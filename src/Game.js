@@ -3,6 +3,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Player } from './Player.js';
 import { World, LANES } from './World.js';
 import { Effects } from './Effects.js';
@@ -38,48 +40,65 @@ export class Game {
   initThree() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.18;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x060a18);
-    this.scene.fog = new THREE.Fog(0x0b0e2a, 8, 95);
+    this.scene.fog = new THREE.Fog(0x0b0e2a, 10, 120);
 
-    this.camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 200);
-    this.camera.position.set(0, 4.6, 9.6);
+    // PBR environment map for realistic reflections / metal highlights
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const envScene = new RoomEnvironment();
+    const envMap = pmrem.fromScene(envScene, 0.04).texture;
+    this.scene.environment = envMap;
+    if ('environmentIntensity' in this.scene) this.scene.environmentIntensity = 0.65;
+    pmrem.dispose();
+
+    this.camera = new THREE.PerspectiveCamera(68, w / h, 0.08, 240);
+    this.camera.position.set(0, 4.7, 9.8);
     this.camera.lookAt(0, 1.7, -10);
 
     // lights
-    const hemi = new THREE.HemisphereLight(0xbcd3ff, 0x101020, 1.1);
+    const hemi = new THREE.HemisphereLight(0xbcd3ff, 0x14101a, 1.15);
     this.scene.add(hemi);
+    const amb = new THREE.AmbientLight(0xffffff, 0.18);
+    this.scene.add(amb);
 
-    const dir = new THREE.DirectionalLight(0xffffff, 1.7);
-    dir.position.set(8, 16, -6);
+    const dir = new THREE.DirectionalLight(0xfff4e0, 2.1);
+    dir.position.set(8, 18, -6);
     dir.castShadow = true;
     dir.shadow.mapSize.set(2048, 2048);
     dir.shadow.camera.left = -18;
     dir.shadow.camera.right = 18;
-    dir.shadow.camera.top = 18;
-    dir.shadow.camera.bottom = -18;
-    dir.shadow.camera.far = 60;
+    dir.shadow.camera.top = 20;
+    dir.shadow.camera.bottom = -14;
+    dir.shadow.camera.far = 70;
+    dir.shadow.bias = -0.0004;
     this.scene.add(dir);
 
-    const playerLight = new THREE.PointLight(0x36e0ff, 12, 12, 2);
+    const rim = new THREE.DirectionalLight(0x7df9ff, 0.9);
+    rim.position.set(-10, 8, 10);
+    this.scene.add(rim);
+
+    const playerLight = new THREE.PointLight(0x36e0ff, 14, 14, 2);
     this.playerLight = playerLight;
     this.scene.add(playerLight);
 
-    // postprocessing
+    // postprocessing: render -> bloom -> output(tone map) -> vignette
     this.composer = new EffectComposer(this.renderer);
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.85, 0.75, 0.34);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.62, 0.8, 0.46);
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
+    this.vignettePass = new ShaderPass(this.vignetteShader());
+    this.composer.addPass(this.vignettePass);
 
     window.addEventListener('resize', () => this.onResize());
 
@@ -137,6 +156,41 @@ export class Game {
     }
 
     applyTranslations();
+  }
+
+  vignetteShader() {
+    return {
+      uniforms: {
+        tDiffuse: { value: null },
+        uVig: { value: 0.42 },
+        uTan: { value: 0.14 },
+        uTint: { value: new THREE.Color(0x0b1233) },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uVig;
+        uniform float uTan;
+        uniform vec3 uTint;
+        varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(tDiffuse, vUv);
+          vec2 uv = vUv - 0.5;
+          float dist = length(uv);
+          float vig = smoothstep(0.62, 1.28, dist * (1.0 + uVig));
+          float warm = 1.0 - smoothstep(0.0, 1.0, dist);
+          c.rgb = mix(c.rgb, c.rgb * uTint * 2.2, uTan * warm);
+          c.rgb *= (1.0 - vig * 0.42);
+          gl_FragColor = c;
+        }
+      `,
+    };
   }
 
   onResize() {

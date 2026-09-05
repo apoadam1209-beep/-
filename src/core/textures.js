@@ -112,7 +112,7 @@ function normaliseAlbedo(data, pixels, target) {
   // black the moment the lighting is anything but blue. Pulling the albedo
   // toward neutral keeps the biome's identity while giving every channel
   // something to reflect.
-  const DESAT = 0.55;
+  const DESAT = 0.3;
   const inv = 1 - KNEE;
   for (let i = 0; i < pixels; i++) {
     const j = i * 4;
@@ -442,9 +442,13 @@ export function skyTexture(id, topHex, midHex, bottomHex, starDensity = 0.0, sun
   grd.addColorStop(0.26, toCss(topHex));
   grd.addColorStop(0.42, toCss(midHex));
   grd.addColorStop(0.492, toCss(bottomHex)); // horizon burn, just above eye level
-  grd.addColorStop(0.512, dark(bottomHex, 0.62));
-  grd.addColorStop(0.62, dark(midHex, 0.42));
-  grd.addColorStop(1.00, dark(topHex, 0.5));
+  // The lower hemisphere is normally hidden by the ground, but the ground only
+  // reaches 75 m to each side — past that the sky shows through. Keeping it
+  // near-black turned that gap into a void hanging over the world, so it is
+  // now a ground-haze tone that reads as distant terrain instead.
+  grd.addColorStop(0.512, dark(bottomHex, 0.88));
+  grd.addColorStop(0.62, dark(midHex, 0.72));
+  grd.addColorStop(1.00, dark(midHex, 0.58));
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
 

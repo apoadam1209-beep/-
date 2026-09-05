@@ -1,7 +1,7 @@
 // World: sky dome, planets, lighting, recycled ground tiles, parallax skyline,
 // side scenery pools and ambient weather particles — all biome driven.
 import * as THREE from 'three';
-import { BIOMES, biomeGroundMaterial, biomeSkylineTexture } from './biomes.js';
+import { BIOMES, biomeGroundMaterial, biomeSideMaterial, biomeSkylineTexture } from './biomes.js';
 import { skyTexture, glowSprite } from '../core/textures.js';
 import { biomeEnvironment } from '../core/env.js';
 import { normalisedLightColor } from '../core/light.js';
@@ -37,9 +37,9 @@ export class World {
       new THREE.SphereGeometry(52, 28, 20),
       new THREE.MeshBasicMaterial({ color: 0x8a5bff, fog: false, transparent: true, opacity: 0.9 })
     );
-    this.planet.position.set(-160, 130, -420);
+    this.planet.position.set(-210, 96, -470);
     this.planetRing = new THREE.Mesh(
-      new THREE.TorusGeometry(84, 5, 2, 60),
+      new THREE.TorusGeometry(84, 4, 6, 60),
       new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
     );
     this.planetRing.position.copy(this.planet.position);
@@ -71,15 +71,16 @@ export class World {
 
     // -------------------------------------------------------------- ground
     this.groundMat = biomeGroundMaterial(this.biome);
-    this.sideMat = new THREE.MeshStandardMaterial({ color: 0x11131f, roughness: 0.95, metalness: 0.0 });
+    this.sideMat = biomeSideMaterial(this.biome);
     this.railMat = new THREE.MeshBasicMaterial({ color: this.biome.laneGlow, fog: true });
-    this.laneMat = new THREE.MeshBasicMaterial({ color: this.biome.laneGlow, transparent: true, opacity: 0.35, fog: true });
+    this.laneMat = new THREE.MeshBasicMaterial({ color: this.biome.laneGlow, transparent: true, opacity: 0.75, fog: true });
 
     this.tiles = [];
+    this.sideMeshes = [];
     const tileGeo = new THREE.PlaneGeometry(TRACK_WIDTH, TILE_LENGTH, 1, 1);
     const sideGeo = new THREE.PlaneGeometry(70, TILE_LENGTH, 1, 1);
-    const railGeo = new THREE.BoxGeometry(0.16, 0.22, TILE_LENGTH);
-    const laneGeo = new THREE.PlaneGeometry(0.09, TILE_LENGTH);
+    const railGeo = new THREE.BoxGeometry(0.22, 0.3, TILE_LENGTH);
+    const laneGeo = new THREE.PlaneGeometry(0.16, TILE_LENGTH);
 
     for (let i = 0; i < TILE_COUNT; i++) {
       const g = new THREE.Group();
@@ -90,6 +91,7 @@ export class World {
 
       for (const s of [-1, 1]) {
         const side = new THREE.Mesh(sideGeo, this.sideMat);
+        this.sideMeshes.push(side);
         side.rotation.x = -Math.PI / 2;
         side.position.set(s * (TRACK_WIDTH / 2 + 35), -0.35, 0);
         side.receiveShadow = true;
@@ -338,6 +340,11 @@ export class World {
     }
     this.groundMat = newMat;
 
+    const nextSide = biomeSideMaterial(biome);
+    if (nextSide !== this.sideMat) {
+      this.sideMat = nextSide;
+      for (const s2 of this.sideMeshes) s2.material = nextSide;
+    }
     this.railMat.color.setHex(biome.laneGlow);
     this.laneMat.color.setHex(biome.laneGlow);
     const sky = skyTexture(biome.id, ...biome.sky, biome.stars, biome.sunPos, biome.skyFeature);

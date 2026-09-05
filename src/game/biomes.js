@@ -188,6 +188,44 @@ function addDetailBreakup(mat, b) {
   };
 }
 
+/**
+ * The terrain either side of the track.
+ *
+ * This was a single flat colour (0x11131f) shared by every world, and it is
+ * 140 m wide against the track's 11.5 m — so roughly nine tenths of the ground
+ * on screen had no texture at all, which is why the floor read as a smooth
+ * grey gradient no matter how much detail went into groundTexture.
+ */
+const sideMatCache = new Map();
+export function biomeSideMaterial(b) {
+  if (sideMatCache.has(b.id)) return sideMatCache.get(b.id);
+  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  const clones = [map, normalMap, roughnessMap].map((t) => {
+    const c = t.clone();
+    c.wrapS = c.wrapT = THREE.RepeatWrapping;
+    c.repeat.set(14, 8); // wider tiling: this plane is six times the track's width
+    c.anisotropy = 16;
+    c.needsUpdate = true;
+    return c;
+  });
+  const [m, n, rm] = clones;
+  const mat = new THREE.MeshStandardMaterial({
+    map: m,
+    normalMap: n,
+    normalScale: new THREE.Vector2(1.2, 1.2),
+    roughnessMap: rm,
+    // a touch darker and rougher than the track, so the running surface still
+    // reads as the running surface
+    color: new THREE.Color(0x8d93a8),
+    roughness: Math.min(1, b.ground.rough + 0.25),
+    metalness: b.ground.metal * 0.35,
+    envMapIntensity: 0.7,
+  });
+  addDetailBreakup(mat, b);
+  sideMatCache.set(b.id, mat);
+  return mat;
+}
+
 export function biomeGroundMaterial(b) {
   if (groundMatCache.has(b.id)) return groundMatCache.get(b.id);
   const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);

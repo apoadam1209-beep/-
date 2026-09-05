@@ -265,9 +265,18 @@ function canyonWall(b) {
   for (let i = 0; i < beds; i++) {
     const th = rand(1.4, 4.2);
     const inset = i * rand(0.15, 0.5);
-    b.add(SHAPES.box(), rock(strata[i % strata.length], 0.92, 0.02),
-      [x + inset, y + th / 2, rand(-1.5, 1.5)],
-      [rand(7, 11), th, rand(20, 26)], [0, rand(-0.05, 0.05), rand(-0.03, 0.03)]);
+    // One box per bed made a stack of cardboard cartons. Each bed is broken
+    // into blocks of differing length, depth and tilt so the face erodes.
+    const blocks = 2 + ((Math.random() * 3) | 0);
+    let zc = -13;
+    for (let k = 0; k < blocks && zc < 13; k++) {
+      const len = rand(6, 13);
+      b.add(SHAPES.box(), rock(strata[(i + k) % strata.length], 0.92, 0.02),
+        [x + inset + rand(-1.2, 1.2), y + th / 2 + rand(-0.25, 0.25), zc + len / 2],
+        [rand(6, 11), th * rand(0.8, 1.15), len],
+        [rand(-0.04, 0.04), rand(-0.12, 0.12), rand(-0.06, 0.06)]);
+      zc += len * rand(0.8, 1.0);
+    }
     // a glowing seam between two beds
     if (Math.random() < 0.35) {
       b.add(SHAPES.box(), vein, [x + inset - 3.6, y + th, rand(-2, 2)], [0.5, 0.22, rand(10, 20)]);

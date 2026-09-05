@@ -145,7 +145,9 @@ export class Game {
     if (!post) return;
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.58, 0.7, 0.85);
+    this.bloom = // threshold 0.85 still let a bright daylight sky bleed over the horizon
+      // and wash the ground into it
+      new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.65, 0.95);
     this.composer.addPass(this.bloom);
     // photographic finish: contrast, vignette, grain, speed aberration
     this.grade = new ShaderPass(GradeShader);

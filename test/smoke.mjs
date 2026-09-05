@@ -340,6 +340,31 @@ for (let i = 0; i < 60 * 420; i++) {
 // A large dark shape has been sitting across the top of the frame in every
 // biome. Rather than guess, project every visible mesh's bounding sphere into
 // NDC and report whatever actually covers the upper-centre of the screen.
+if (process.env.XENO_GROUND_AUDIT) {
+  const w = game.world;
+  console.log('\nground materials as actually bound at runtime:');
+  const seen = new Map();
+  game.scene.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const m = o.material;
+    const k = m.uuid;
+    if (!seen.has(k)) seen.set(k, { m, n: 0 });
+    seen.get(k).n++;
+  });
+  for (const { m, n } of [...seen.values()].sort((a, b) => b.n - a.n).slice(0, 6)) {
+    console.log(`  x${String(n).padStart(3)}  ${m.type.replace('Mesh','').replace('Material','').padEnd(9)} ` +
+      `colour #${m.color ? m.color.getHexString() : '------'}  map:${m.map ? 'YES' : 'no '}  ` +
+      `rough:${(m.roughness ?? 0).toFixed(2)} metal:${(m.metalness ?? 0).toFixed(2)} ` +
+      `env:${(m.envMapIntensity ?? 0).toFixed(2)}`);
+  }
+  console.log(`  sideMat is the biome material: ${w.sideMat && w.sideMat.map ? 'YES' : 'NO — still a flat colour'}`);
+  console.log(`  side meshes tracked           : ${w.sideMeshes ? w.sideMeshes.length : 0}`);
+  console.log(`  side mesh 0 uses sideMat      : ${w.sideMeshes && w.sideMeshes[0] ? (w.sideMeshes[0].material === w.sideMat) : 'n/a'}`);
+  console.log(`  scene.fog                     : #${game.scene.fog.color.getHexString()} density ${game.scene.fog.density.toFixed(5)}`);
+  console.log(`  scene.environment             : ${game.scene.environment ? 'probe bound' : 'NONE'} intensity ${game.scene.environmentIntensity ?? 'n/a'}`);
+  console.log(`  toneMappingExposure           : ${game.renderer.toneMappingExposure}`);
+  console.log('');
+}
 if (process.env.XENO_FRAME_AUDIT) {
   const THREE = await import(path.join(tmp, 'three-shim.js'));
   const cam = game.camera;

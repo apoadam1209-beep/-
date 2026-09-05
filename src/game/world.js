@@ -250,7 +250,9 @@ export class World {
     const base = new THREE.Color(biome.skyline.color);
     this.ridgeMat.color.copy(base).multiplyScalar(1.35);
     // the far belt is washed toward the horizon: cheap, convincing aerial haze
-    this.ridgeFarMat.color.copy(base).lerp(new THREE.Color(biome.sky[2]), 0.55);
+    // 0.55 toward the horizon colour left the far relief indistinguishable
+    // from the sky it stood against; aerial perspective, not erasure
+    this.ridgeFarMat.color.copy(base).lerp(new THREE.Color(biome.sky[2]), 0.34);
     for (const r of this.ridges) r.mesh.geometry = this._ridgeGeometry(biome.skyline.style, r.seed);
   }
 

@@ -309,6 +309,38 @@ for (const b of BIOMES) {
 }
 console.log('-----------------------------------------------------------------');
 console.log(`required: >= ${MIN_TRIS} tris/site, >= ${MIN_CONTRAST} L* against the floor`);
+
+/* ------------------------------------------- ground must not melt into sky
+ * Crystal Canyon in daylight had a near-white sky, a fog colour taken straight
+ * from that sky, and bloom spilling over the horizon. The result was a single
+ * pale field with no readable boundary between ground and air. Whatever the
+ * palette, the deck has to sit clearly darker than the sky it meets.
+ */
+const hexL = (hex) => {
+  const lin = [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
+    .map((v) => srgbToLinear(v / 255));
+  const Y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return Y > 0.008856 ? 116 * Math.cbrt(Y) - 16 : 903.3 * Y;
+};
+const MIN_HORIZON_SPLIT = 14;
+console.log('\nhorizon read: can you tell the ground from the sky?');
+console.log('biome              deck L*   sky horizon L*   fog L*   split');
+console.log('-----------------------------------------------------------------');
+for (const b of BIOMES) {
+  const deck = lightness(trackPixel(b).bytes);
+  const skyL = hexL(b.sky[2]);
+  const fogL = hexL(b.fog);
+  // fog is what the deck actually fades into, so it is the honest comparison
+  const split = Math.min(Math.abs(deck - skyL), Math.abs(deck - fogL) + 6);
+  const ok = split >= MIN_HORIZON_SPLIT;
+  if (!ok) failures++;
+  console.log(
+    `${b.name.padEnd(17)} ${deck.toFixed(0).padStart(7)} ${skyL.toFixed(0).padStart(16)} ` +
+    `${fogL.toFixed(0).padStart(8)} ${split.toFixed(0).padStart(7)}   ${ok ? '✓' : '✗ MELTS INTO SKY'}`
+  );
+}
+console.log('-----------------------------------------------------------------');
+console.log(`required: >= ${MIN_HORIZON_SPLIT} L* between the deck and the sky it meets`);
 if (failures) {
   console.log(`\nLIGHTING TEST FAILED ✗  (${failures}/${BIOMES.length} biomes unreadable)`);
   process.exit(1);

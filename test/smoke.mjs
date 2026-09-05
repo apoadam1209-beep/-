@@ -228,3 +228,4 @@ if (errors.length) { console.log(errors.slice(0, 5)); process.exit(1); }
 if (seenBiomes.size < 5) { console.log('FAIL: not all biomes reached'); process.exit(1); }
 if (maxActive > 900) { console.log('FAIL: entity leak'); process.exit(1); }
 console.log('SMOKE TEST PASSED ✔');
+process.exit(0); // background timers (biome prebake) would otherwise hold the loop

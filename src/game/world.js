@@ -12,6 +12,7 @@ export class World {
     this.renderer = renderer;
     this.biome = BIOMES[0];
     this.propPools = new Map();
+    this.parks = new Map(); // detached holders: parked props are never traversed
     this.time = 0;
 
     scene.fog = new THREE.FogExp2(this.biome.fog, this.biome.fogDensity);
@@ -161,18 +162,36 @@ export class World {
     this.scene.add(this.particles);
   }
 
+  _park(p) {
+    const park = this.parks.get(p.userData.biomeId);
+    if (park) park.add(p);
+    p.visible = false;
+    p.userData.owner = null;
+  }
+
   _propPool(biome) {
     if (!this.propPools.has(biome.id)) {
+      const park = new THREE.Group(); // deliberately NOT added to the scene
+      this.parks.set(biome.id, park);
       const pool = [];
-      for (let i = 0; i < 34; i++) {
+      for (let i = 0; i < 58; i++) {
         const p = biome.prop();
         p.visible = false;
-        this.scene.add(p);
+        p.userData.biomeId = biome.id;
+        park.add(p);
         pool.push(p);
       }
       this.propPools.set(biome.id, pool);
     }
     return this.propPools.get(biome.id);
+  }
+
+  /** Bake a biome's textures and scenery ahead of time (no mid-run hitching). */
+  prebake(biome) {
+    biomeGroundMaterial(biome);
+    biomeSkylineTexture(biome);
+    skyTexture(biome.id, ...biome.sky, biome.stars);
+    this._propPool(biome);
   }
 
   applyBiome(biome, instant = false) {
@@ -181,12 +200,12 @@ export class World {
 
     // release old props
     for (const t of this.tiles) {
-      for (const p of t.props) { p.visible = false; p.userData.owner = null; this.scene.add(p); }
+      for (const p of t.props) this._park(p);
       t.props = [];
     }
     if (prev) {
       const old = this.propPools.get(prev.id);
-      if (old) for (const p of old) { p.visible = false; p.userData.owner = null; }
+      if (old) for (const p of old) this._park(p);
     }
 
     const newMat = biomeGroundMaterial(biome);
@@ -235,22 +254,23 @@ export class World {
 
   _dressTile(tile, pool) {
     for (const p of tile.props) {
-      if (p.userData.owner === tile) { p.visible = false; p.userData.owner = null; this.scene.add(p); }
+      if (p.userData.owner === tile) this._park(p);
     }
     tile.props = [];
     for (let s = 0; s < 2; s++) {
-      if (Math.random() < 0.18) continue;
-      const p = pool[this.poolCursor % pool.length];
-      this.poolCursor++;
-      if (p.userData.owner) continue; // still dressing another tile
-      p.userData.owner = tile;
-      p.visible = true;
-      p.rotation.y = rand(0, Math.PI * 2);
-      const sc = rand(0.8, 1.25);
-      p.scale.setScalar(sc);
-      tile.slots[s].add(p);
-      p.position.set(rand(-3, 3) + (s === 0 ? -2 : 2), 0, rand(-10, 10));
-      tile.props.push(p);
+      for (let k = 0; k < 2; k++) { // two clusters per side = a denser, richer world
+        if (Math.random() < 0.08) continue;
+        const p = pool[this.poolCursor % pool.length];
+        this.poolCursor++;
+        if (p.userData.owner) continue; // still dressing another tile
+        p.userData.owner = tile;
+        p.visible = true;
+        p.rotation.y = rand(0, Math.PI * 2);
+        p.scale.setScalar(rand(0.75, 1.3));
+        tile.slots[s].add(p);
+        p.position.set(rand(-4, 4) + (s === 0 ? -2 : 2) + k * (s === 0 ? -7 : 7), 0, rand(-11, 11) + (k ? 6 : -6));
+        tile.props.push(p);
+      }
     }
   }
 

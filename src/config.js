@@ -6,7 +6,7 @@ export const LANE_X = [-LANE_WIDTH, 0, LANE_WIDTH];
 
 export const TRACK_WIDTH = 11.5;
 export const TILE_LENGTH = 24;
-export const TILE_COUNT = 11;
+export const TILE_COUNT = 14;
 export const CEILING_Y = 7.4; // inverted-gravity running plane
 
 export const START_SPEED = 17.5;

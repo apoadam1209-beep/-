@@ -60,6 +60,18 @@ export class Game {
     this.ui.syncSettings(this.settings);
     this.ui.setBest(this.save.best, this.save.bestDist);
 
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this._contextLost = true;
+      if (this.state === 'running') this.pauseGame();
+      if (window.__xenoError) window.__xenoError('Graphics context lost', 'Restoring… if it stays frozen, reload the page or set Graphics to LOW.');
+    }, false);
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      this._contextLost = false;
+      this.applySetting('quality', this.settings.quality, true);
+      if (window.__xenoHideError) window.__xenoHideError();
+    }, false);
+
     window.addEventListener('resize', () => this.resize());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'running') this.pauseGame();
@@ -67,6 +79,7 @@ export class Game {
 
     this.resize();
     this._readyToPlay();
+    this._prebakeWorlds();
     this.loop = this.loop.bind(this);
     requestAnimationFrame(this.loop);
   }
@@ -81,7 +94,7 @@ export class Game {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.18;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
 
@@ -136,7 +149,7 @@ export class Game {
         this.renderer.shadowMap.enabled = true;
         this._initComposer(true);
       } else if (q === 'medium') {
-        this.renderer.setPixelRatio(Math.min(dpr, 1.5));
+        this.renderer.setPixelRatio(Math.min(dpr, 1.75));
         this.renderer.shadowMap.enabled = false;
         this._initComposer(true);
       } else {
@@ -176,6 +189,21 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
     if (this.composer) this.composer.setSize(w, h);
+  }
+
+  /** Quietly bake the other four worlds while the player is in the menu. */
+  _prebakeWorlds() {
+    let i = 1;
+    let waits = 0;
+    const step = () => {
+      if (i >= BIOMES.length) return;
+      // never hitch a live run — but give up waiting after ~1 minute
+      if (this.state === 'running' && waits++ < 50) { setTimeout(step, 1200); return; }
+      try { this.world.prebake(BIOMES[i]); } catch (e) { console.warn('prebake failed', e); }
+      i++;
+      setTimeout(step, 90);
+    };
+    setTimeout(step, 700);
   }
 
   _readyToPlay() {
@@ -324,6 +352,7 @@ export class Game {
 
   /* --------------------------------------------------------- actions */
   onAction(a) {
+    this._lastAction = a;
     if (this.state === 'ready') {
       if (a !== 'pause') this.beginAfterTutorial();
       return;
@@ -420,6 +449,21 @@ export class Game {
   /* ------------------------------------------------------------ loop */
   loop() {
     requestAnimationFrame(this.loop);
+    try {
+      this._frame();
+    } catch (err) {
+      console.error(err);
+      this._reportError(err);
+    }
+  }
+
+  _reportError(err) {
+    if (this._errorShown) return;
+    this._errorShown = true;
+    if (window.__xenoError) window.__xenoError('Runtime error', err && (err.message || err));
+  }
+
+  _frame() {
     let dt = Math.min(0.05, this.clock.getDelta());
     this._watchPerformance(dt);
 
@@ -440,6 +484,20 @@ export class Game {
     this.world.update(sdt, this.p ? this.p.z : 0, this.p ? this.p.x : 0, this.audio.beat);
 
     this.render();
+
+    if (window.__xenoDiag) {
+      window.__xenoDiag({
+        state: this.state,
+        fps: this._fps ? this._fps.toFixed(0) : '-',
+        dt: (dt * 1000).toFixed(1),
+        ts: this.timeScale.toFixed(2),
+        speed: this.speed ? this.speed.toFixed(1) : '0',
+        dist: Math.round(this.distance || 0),
+        act: this._lastAction || '-',
+        live: this.pool.active.length,
+        q: this.settings.quality,
+      });
+    }
   }
 
   /** Drops a quality tier automatically if the phone can't hold ~40fps. */
@@ -849,15 +907,21 @@ export class Game {
   offerMutation() {
     this.state = 'mutation';
     this.audio.stopMusic();
-    this.ui.offerMutations(this.ownedMutations, (m) => {
-      this.ownedMutations.add(m.id);
-      m.apply(this);
+    const resume = () => {
       this.ui.hideAll();
       this.state = 'running';
       this.audio.startMusic(this.world.biome.music);
-      this.ui.toast(`${m.name} ACQUIRED`, m.color);
-      this.audio.power();
+    };
+    const offered = this.ui.offerMutations(this.ownedMutations, (m) => {
+      if (m) {
+        this.ownedMutations.add(m.id);
+        m.apply(this);
+        this.ui.toast(`${m.name} ACQUIRED`, m.color);
+        this.audio.power();
+      }
+      resume();
     });
+    if (!offered) resume(); // deck exhausted — never leave the player stuck
   }
 
   setFlip(on) {

@@ -16,7 +16,7 @@ function toTexture(cv, repeat = 1, srgb = true) {
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat, repeat);
-  tex.anisotropy = 8;
+  tex.anisotropy = 16;
   if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
@@ -47,7 +47,7 @@ function heightToNormal(height, size, strength = 2.4) {
   ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = 16;
   return tex;
 }
 
@@ -63,7 +63,7 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
   const key = `ground_${id}`;
   if (cache.has(key)) return cache.get(key);
 
-  const size = 512;
+  const size = 1024; // high-resolution deck: every crack and panel reads clearly
   const cv = canvas(size);
   const ctx = cv.getContext('2d');
   const img = ctx.createImageData(size, size);

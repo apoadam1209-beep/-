@@ -33,6 +33,7 @@ export class UI {
     for (const b of document.querySelectorAll('.back-btn')) b.onclick = () => this.show('menu');
     $('btn-pause').onclick = () => this.h.pause();
     $('btn-resume').onclick = () => this.h.resume();
+    $('pause').addEventListener('pointerdown', (e) => { if (e.target === $('pause')) this.h.resume(); });
     $('btn-restart').onclick = () => this.h.play();
     $('btn-quit').onclick = () => this.h.quit();
     $('btn-again').onclick = () => this.h.play();
@@ -169,16 +170,27 @@ export class UI {
     while (picks.length < 3 && bag.length) {
       picks.push(bag.splice((Math.random() * bag.length) | 0, 1)[0]);
     }
+    if (!picks.length) return false; // deck exhausted — caller keeps running
     this.el.mutCards.innerHTML = '';
     for (const m of picks) {
       const card = document.createElement('div');
       card.className = 'mut-card';
       card.innerHTML = `<div class="mut-icon" style="color:${m.color}">${m.icon}</div>
         <div><div class="mut-name" style="color:${m.color}">${m.name}</div><div class="mut-desc">${m.desc}</div></div>`;
-      card.onclick = () => onPick(m);
+      const choose = () => onPick(m);
+      card.onclick = choose;
+      card.addEventListener('touchend', (e) => { e.preventDefault(); choose(); }, { passive: false });
       this.el.mutCards.appendChild(card);
     }
+    const skip = document.createElement('button');
+    skip.className = 'ghost-btn wide';
+    skip.textContent = 'SKIP — KEEP RUNNING';
+    const doSkip = () => onPick(null);
+    skip.onclick = doSkip;
+    skip.addEventListener('touchend', (e) => { e.preventDefault(); doSkip(); }, { passive: false });
+    this.el.mutCards.appendChild(skip);
     this.show('mutation');
+    return true;
   }
 
   showGameOver(s, best, caught) {

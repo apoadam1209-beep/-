@@ -9,13 +9,14 @@ export const GradeShader = {
   name: 'GradeShader',
   uniforms: {
     tDiffuse: { value: null },
-    uContrast: { value: 1.09 },
+    uContrast: { value: 1.06 },
+    uPivot: { value: 0.22 },
     uSaturation: { value: 1.12 },
     uVignette: { value: 0.42 },
     uAberration: { value: 0.0 }, // driven by speed / overdrive
     uGrain: { value: 0.035 },
     uTime: { value: 0 },
-    uLift: { value: 0.012 },
+    uLift: { value: 0.03 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -27,6 +28,7 @@ export const GradeShader = {
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
     uniform float uContrast;
+    uniform float uPivot;
     uniform float uSaturation;
     uniform float uVignette;
     uniform float uAberration;
@@ -55,8 +57,10 @@ export const GradeShader = {
         col = texture2D(tDiffuse, uv).rgb;
       }
 
-      // filmic contrast around mid grey, then a tiny lift so blacks read as air
-      col = (col - 0.5) * uContrast + 0.5;
+      // Contrast pivots around uPivot, NOT mid grey. These are night worlds:
+      // almost every pixel sits below 0.5, so a mid-grey pivot dragged the
+      // whole image toward black instead of adding punch.
+      col = (col - uPivot) * uContrast + uPivot;
       col = max(col + uLift * (1.0 - col), 0.0);
 
       // saturation about luma

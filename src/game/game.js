@@ -96,7 +96,7 @@ export class Game {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08; // the grade pass adds its own contrast
+    this.renderer.toneMappingExposure = 1.5; // calibrated by test/lighting.mjs
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
 
@@ -124,9 +124,9 @@ export class Game {
 
     // key light riding behind the runner: the sun is ahead, so without this
     // the camera only ever sees the creature's unlit back
-    this.heroLight = new THREE.PointLight(0xd6e8ff, 3.2, 30, 2);
+    this.heroLight = new THREE.PointLight(0xd6e8ff, 6.4, 34, 2);
     this.scene.add(this.heroLight);
-    this.heroRim = new THREE.PointLight(0x7fd8ff, 1.5, 16, 2);
+    this.heroRim = new THREE.PointLight(0x7fd8ff, 3.0, 18, 2);
     this.scene.add(this.heroRim);
 
     // ground blob shadow (cheap, always on)
@@ -145,7 +145,7 @@ export class Game {
     if (!post) return;
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.62, 0.72, 0.72);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.58, 0.7, 0.85);
     this.composer.addPass(this.bloom);
     // photographic finish: contrast, vignette, grain, speed aberration
     this.grade = new ShaderPass(GradeShader);

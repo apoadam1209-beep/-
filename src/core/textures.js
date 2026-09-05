@@ -68,6 +68,71 @@ function toDataTexture(field, size, aniso = 8) {
   return tex; // linear space on purpose: this is data, not colour
 }
 
+const srgbToLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const linearToSrgb = (c) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+
+// Colour conversion over a 1024x1024 buffer is three million pow() calls per
+// direction and it doubled the loading screen. Both directions are pure
+// functions of one value, so they become table lookups.
+const SRGB_TO_LIN = new Float32Array(256);
+for (let i = 0; i < 256; i++) SRGB_TO_LIN[i] = srgbToLinear(i / 255);
+const LIN_STEPS = 4096;
+const LIN_TO_BYTE = new Uint8Array(LIN_STEPS + 1);
+for (let i = 0; i <= LIN_STEPS; i++) LIN_TO_BYTE[i] = Math.round(linearToSrgb(i / LIN_STEPS) * 255);
+const linToByte = (l) => LIN_TO_BYTE[l <= 0 ? 0 : l >= 1 ? LIN_STEPS : (l * LIN_STEPS) | 0];
+
+/**
+ * Give every deck the same average reflectance.
+ *
+ * Hand-picked palettes drift wildly in real brightness: the metropolis deck
+ * measured a linear albedo of 0.022 while the glacier measured 0.221 — ten
+ * times more light bounced off the same lighting rig. No single exposure can
+ * serve both, so four of the five worlds rendered as black. Normalising the
+ * mean here means the palette controls hue and the lights control brightness,
+ * which is the only way the two stay independent.
+ *
+ * Scaling happens in linear space with a soft shoulder, so glowing veins roll
+ * off toward white instead of clipping into flat blobs.
+ */
+function normaliseAlbedo(data, pixels, target) {
+  let sum = 0;
+  for (let i = 0; i < pixels; i++) {
+    const j = i * 4;
+    sum += 0.2126 * SRGB_TO_LIN[data[j]]
+         + 0.7152 * SRGB_TO_LIN[data[j + 1]]
+         + 0.0722 * SRGB_TO_LIN[data[j + 2]];
+  }
+  const mean = sum / pixels;
+  if (!(mean > 0)) return 1;
+  const k = clamp(target / mean, 0.4, 8);
+  const KNEE = 0.75;
+  // Real surfaces are far less saturated than a hand-picked palette: rock is
+  // grey with a tint, and the hue arrives from the light hitting it. A deck of
+  // near-pure blue has almost nothing in its red and green channels, so it goes
+  // black the moment the lighting is anything but blue. Pulling the albedo
+  // toward neutral keeps the biome's identity while giving every channel
+  // something to reflect.
+  const DESAT = 0.55;
+  const inv = 1 - KNEE;
+  for (let i = 0; i < pixels; i++) {
+    const j = i * 4;
+    const lr = SRGB_TO_LIN[data[j]];
+    const lg = SRGB_TO_LIN[data[j + 1]];
+    const lb = SRGB_TO_LIN[data[j + 2]];
+    const y = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    let a = (lr + (y - lr) * DESAT) * k;
+    let b = (lg + (y - lg) * DESAT) * k;
+    let c = (lb + (y - lb) * DESAT) * k;
+    if (a > KNEE) a = KNEE + inv * (1 - Math.exp(-(a - KNEE) / inv));
+    if (b > KNEE) b = KNEE + inv * (1 - Math.exp(-(b - KNEE) / inv));
+    if (c > KNEE) c = KNEE + inv * (1 - Math.exp(-(c - KNEE) / inv));
+    data[j] = linToByte(a);
+    data[j + 1] = linToByte(b);
+    data[j + 2] = linToByte(c);
+  }
+  return k;
+}
+
 function hexToRgb(hex) {
   return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
 }
@@ -269,6 +334,8 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
       rough[y * size + x] = clamp(rgh, 0.03, 1);
     }
   }
+  normaliseAlbedo(img.data, size * size, 0.135);
+
   ctx.putImageData(img, 0, 0);
   const result = {
     map: toTexture(cv, 1),
@@ -301,9 +368,11 @@ export function alienSkin() {
       const blotch = fbm(u * 6, v * 6, 4, 11);
       const scale = clamp(1 - cell * 3.0, 0, 1);
 
-      let r = 58 + blotch * 62 + scale * 44;
-      let g = 118 + blotch * 78 + scale * 36;
-      let b = 132 + blotch * 50 + grain * 30;
+      // Calibrated by test/lighting.mjs: bright enough to never silhouette,
+      // dark enough to keep its blue-green character instead of going white.
+      let r = 45 + blotch * 52 + scale * 38;
+      let g = 99 + blotch * 68 + scale * 32;
+      let b = 112 + blotch * 43 + grain * 27;
       // softer dorsal shading band — keeps the form readable from behind
       const dorsal = Math.exp(-Math.pow((v - 0.5) * 5, 2));
       r *= 1 - dorsal * 0.2; r += 6;

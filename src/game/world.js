@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { BIOMES, biomeGroundMaterial, biomeSkylineTexture } from './biomes.js';
 import { skyTexture, glowSprite } from '../core/textures.js';
 import { biomeEnvironment } from '../core/env.js';
+import { normalisedLightColor } from '../core/light.js';
 import { TRACK_WIDTH, TILE_LENGTH, TILE_COUNT } from '../config.js';
 import { rand } from '../core/noise.js';
 
@@ -359,15 +360,14 @@ export class World {
     // shape into an unreadable grey-purple smear.
     this.targetFog = new THREE.Color(biome.sky[2]).lerp(new THREE.Color(biome.fog), 0.45);
     this.targetFogDensity = biome.fogDensity;
-    this.hemi.color.setHex(biome.hemi[0]);
-    this.hemi.groundColor.setHex(biome.hemi[1]);
-    // The probe already supplies sky ambience; leaving the hemisphere light at
-    // full strength on top of it flattens everything back out.
-    this.hemi.intensity = biome.hemi[2] * (this.hasEnv ? 0.72 : 1);
-    this.sun.color.setHex(biome.sun[0]);
+    // Hue from the palette, brightness from the intensity — see core/light.js.
+    this.hemi.color.copy(normalisedLightColor(biome.hemi[0], 1));
+    this.hemi.groundColor.copy(normalisedLightColor(biome.hemi[1], 0.35));
+    this.hemi.intensity = biome.hemi[2];
+    this.sun.color.copy(normalisedLightColor(biome.sun[0], 1));
     this.sun.intensity = biome.sun[1];
     this.sunOffset = new THREE.Vector3(...biome.sunPos);
-    this.fill.color.setHex(biome.accent);
+    this.fill.color.copy(normalisedLightColor(biome.accent, 1));
 
     this.planet.material.color.setHex(biome.accent);
     this.planetRing.material.color.setHex(biome.sun[0]);

@@ -1,0 +1,30 @@
+{
+  "name": "xeno-run",
+  "version": "1.0.0",
+  "description": "XENO RUN — a phase-shifting alien endless runner for mobile browsers",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test:smoke": "node test/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apoadam1209-beep/-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/apoadam1209-beep/-/issues"
+  },
+  "homepage": "https://github.com/apoadam1209-beep/-#readme",
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.10"
+  },
+  "type": "module"
+}

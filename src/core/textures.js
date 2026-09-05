@@ -632,7 +632,9 @@ export function skyTexture(id, topHex, midHex, bottomHex, starDensity = 0.0, sun
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     // wide forward-scatter bloom, then the disc
-    for (const [rad, alpha] of [[520, 0.16], [230, 0.2], [86, 0.34]]) {
+    // 520 px of a 2048-wide equirect is a quarter of the full turn — a 91
+    // degree glare that swallowed the sky before bloom even touched it.
+    for (const [rad, alpha] of [[210, 0.11], [104, 0.16], [46, 0.3]]) {
       const g3 = ctx.createRadialGradient(px, py, 0, px, py, rad);
       g3.addColorStop(0, `rgba(255,246,224,${alpha})`);
       g3.addColorStop(0.45, `rgba(255,214,168,${alpha * 0.32})`);

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { GradeShader } from '../core/grade.js';
 
 import {
   LANE_X, CEILING_Y, START_SPEED, MAX_SPEED, SPEED_RAMP, GRAVITY, JUMP_VELOCITY,
@@ -94,7 +96,7 @@ export class Game {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
+    this.renderer.toneMappingExposure = 1.08; // the grade pass adds its own contrast
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
 
@@ -136,13 +138,19 @@ export class Game {
     this.scene.add(this.blob);
   }
 
-  _initComposer(bloom) {
+  _initComposer(post) {
     if (this.composer) { this.composer.dispose?.(); this.composer = null; }
-    if (!bloom) return;
+    this.bloom = null;
+    this.grade = null;
+    if (!post) return;
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.62, 0.72, 0.72);
     this.composer.addPass(this.bloom);
+    // photographic finish: contrast, vignette, grain, speed aberration
+    this.grade = new ShaderPass(GradeShader);
+    this.grade.renderToScreen = true;
+    this.composer.addPass(this.grade);
     this.composer.setSize(window.innerWidth, window.innerHeight);
   }
 
@@ -154,10 +162,14 @@ export class Game {
       if (q === 'high') {
         this.renderer.setPixelRatio(Math.min(dpr, 2));
         this.renderer.shadowMap.enabled = true;
+        this.world.setShadowResolution(2048);
         this._initComposer(true);
       } else if (q === 'medium') {
         this.renderer.setPixelRatio(Math.min(dpr, 1.75));
-        this.renderer.shadowMap.enabled = false;
+        // Shadows used to be off here, which is why mobile looked flat and
+        // pasted-on: contact shadows are what glue an object to the ground.
+        this.renderer.shadowMap.enabled = true;
+        this.world.setShadowResolution(1024);
         this._initComposer(true);
       } else {
         this.renderer.setPixelRatio(1);
@@ -165,6 +177,7 @@ export class Game {
         this._initComposer(false);
       }
       this.world.sun.castShadow = this.renderer.shadowMap.enabled;
+      this.scene.environmentIntensity = q === 'low' ? 0.65 : 0.85;
       this.resize();
     } else if (key === 'sound') {
       this.audio.setMuted(value === 'off');
@@ -517,9 +530,11 @@ export class Game {
     if (dt <= 0) return;
     this._fps = this._fps === undefined ? 60 : this._fps + (1 / dt - this._fps) * 0.05;
     this._fpsTimer = (this._fpsTimer || 0) + dt;
-    if (this.state !== 'running' || this._fpsTimer < 5) return;
+    if (this.state !== 'running' || this._fpsTimer < 8) return;
     this._fpsTimer = 0;
-    if (this._fps < 38 && this.settings.quality !== 'low') {
+    // Only step down for a sustained stall. The old 38fps trip fired on a
+    // single hitch and left players stuck on the blurriest tier for good.
+    if (this._fps < 30 && this.settings.quality !== 'low') {
       const next = this.settings.quality === 'high' ? 'medium' : 'low';
       this.applySetting('quality', next);
       this.ui.syncSettings(this.settings);
@@ -1002,6 +1017,15 @@ export class Game {
     if (this.bloom) {
       const boost = this.inOverdrive ? 1.15 : 0.62;
       this.bloom.strength += (boost - this.bloom.strength) * 0.08;
+    }
+    if (this.grade) {
+      const u = this.grade.uniforms;
+      // lens breaks up as the world gets faster; overdrive pushes it further
+      const speedT = THREE.MathUtils.clamp((this.speed - START_SPEED) / (MAX_SPEED - START_SPEED), 0, 1);
+      const target = speedT * 0.0022 + (this.inOverdrive ? 0.0034 : 0);
+      u.uAberration.value += (target - u.uAberration.value) * 0.08;
+      u.uTime.value = this.clock.elapsedTime;
+      u.uSaturation.value += ((this.inOverdrive ? 1.3 : 1.12) - u.uSaturation.value) * 0.06;
     }
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);

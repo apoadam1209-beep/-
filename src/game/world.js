@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { BIOMES, biomeGroundMaterial, biomeSkylineTexture } from './biomes.js';
 import { skyTexture, glowSprite } from '../core/textures.js';
+import { biomeEnvironment } from '../core/env.js';
 import { TRACK_WIDTH, TILE_LENGTH, TILE_COUNT } from '../config.js';
 import { rand } from '../core/noise.js';
 
@@ -19,7 +20,7 @@ export class World {
 
     // ---------------------------------------------------------------- sky
     this.skyMat = new THREE.MeshBasicMaterial({
-      map: skyTexture(0, ...BIOMES[0].sky, BIOMES[0].stars),
+      map: skyTexture(0, ...BIOMES[0].sky, BIOMES[0].stars, BIOMES[0].sunPos, BIOMES[0].skyFeature),
       side: THREE.BackSide,
       depthWrite: false,
       fog: false,
@@ -130,9 +131,130 @@ export class World {
     this.skyline.renderOrder = -90;
     scene.add(this.skyline);
 
+    // ------------------------------------------------------ distant relief
+    this._buildRidges();
+
     // ---------------------------------------------------------- particles
     this._buildParticles();
     this.applyBiome(this.biome, true);
+  }
+
+
+  /**
+   * Distant relief belts.
+   *
+   * The skyline cylinder is welded to the player, so it can never convey
+   * forward motion — the background used to sit dead still while the track
+   * raced past. These are real recycled meshes far off to each side: at that
+   * distance perspective slides them by slowly, and the near belt overtakes
+   * the far belt, which is the parallax cue the eye reads as "huge and far".
+   */
+  setShadowResolution(size) {
+    if (this.sun.shadow.mapSize.width === size) return;
+    this.sun.shadow.mapSize.set(size, size);
+    if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
+  }
+
+  _buildRidges() {
+    this.ridgeMat = new THREE.MeshStandardMaterial({
+      color: 0x1b2233,
+      roughness: 0.95,
+      metalness: 0.0,
+      flatShading: true,
+      fog: true,
+    });
+    this.ridgeFarMat = new THREE.MeshStandardMaterial({
+      color: 0x1b2233,
+      roughness: 1.0,
+      metalness: 0.0,
+      flatShading: true,
+      fog: true,
+      transparent: true,
+      opacity: 0.85,
+    });
+
+    this.ridges = [];
+    this.RIDGE_SLOTS = 5;
+    const layers = [
+      { name: 'near', spacing: 190, x: 96, scale: 1.0, mat: this.ridgeMat },
+      { name: 'far', spacing: 300, x: 215, scale: 2.15, mat: this.ridgeFarMat },
+    ];
+    for (const layer of layers) {
+      for (let i = 0; i < this.RIDGE_SLOTS; i++) {
+        for (const side of [-1, 1]) {
+          const mesh = new THREE.Mesh(this._ridgeGeometry(this.biome.skyline.style, i * 2 + (side > 0 ? 1 : 0)), layer.mat);
+          mesh.position.set(side * layer.x, -6, -i * layer.spacing);
+          mesh.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+          mesh.scale.setScalar(layer.scale);
+          mesh.renderOrder = -50;
+          this.scene.add(mesh);
+          this.ridges.push({ mesh, layer, side, seed: i * 2 + (side > 0 ? 1 : 0) });
+        }
+      }
+    }
+  }
+
+  /** A silhouette wall whose profile is shaped by the biome's skyline style. */
+  _ridgeGeometry(style, seed) {
+    const key = `${style}_${seed}`;
+    this._ridgeGeo = this._ridgeGeo || new Map();
+    if (this._ridgeGeo.has(key)) return this._ridgeGeo.get(key);
+
+    const SEGS = 42;
+    const LENGTH = 320;
+    const geo = new THREE.PlaneGeometry(LENGTH, 1, SEGS, 1);
+    const pos = geo.attributes.position;
+    const profile = (t) => {
+      const a = Math.sin(t * 7.3 + seed * 2.1) * 0.5 + 0.5;
+      const b = Math.sin(t * 19.7 + seed * 5.7) * 0.5 + 0.5;
+      const c = Math.sin(t * 41.1 + seed * 1.3) * 0.5 + 0.5;
+      if (style === 'city') {
+        // stepped towers with the occasional supertall
+        const block = Math.floor(t * 26 + seed) % 5;
+        const q = Math.round((a * 0.65 + b * 0.35) * 7) / 7;
+        return 16 + q * 46 + (block === 0 ? 34 : 0);
+      }
+      if (style === 'trees') {
+        // rounded canopy, bumpy and dense
+        return 22 + a * 20 + b * 12 + Math.pow(c, 3) * 16;
+      }
+      if (style === 'spires') {
+        // sharp crystal needles
+        const spike = Math.pow(Math.abs(Math.sin(t * 23.0 + seed)), 6);
+        return 14 + a * 24 + spike * 52;
+      }
+      // mountains: broad massifs with jagged crests
+      return 20 + Math.pow(a, 1.4) * 58 + b * 16 + c * 7;
+    };
+    for (let i = 0; i <= SEGS; i++) {
+      const t = i / SEGS;
+      const h = profile(t);
+      pos.setY(i, h);            // top row
+      pos.setY(i + SEGS + 1, 0); // bottom row stays at the base
+    }
+    geo.computeVertexNormals();
+    this._ridgeGeo.set(key, geo);
+    return geo;
+  }
+
+  _applyRidgeStyle(biome) {
+    if (!this.ridges) return;
+    const base = new THREE.Color(biome.skyline.color);
+    this.ridgeMat.color.copy(base).multiplyScalar(1.35);
+    // the far belt is washed toward the horizon: cheap, convincing aerial haze
+    this.ridgeFarMat.color.copy(base).lerp(new THREE.Color(biome.sky[2]), 0.55);
+    for (const r of this.ridges) r.mesh.geometry = this._ridgeGeometry(biome.skyline.style, r.seed);
+  }
+
+  _updateRidges(playerZ, playerX) {
+    if (!this.ridges) return;
+    for (const r of this.ridges) {
+      const span = r.layer.spacing * this.RIDGE_SLOTS;
+      // parallax: the belt drifts sideways with the player, less the further out
+      r.mesh.position.x = r.side * r.layer.x + playerX * (r.layer.name === 'far' ? 0.12 : 0.045);
+      while (r.mesh.position.z > playerZ + r.layer.spacing) r.mesh.position.z -= span;
+      while (r.mesh.position.z < playerZ - span) r.mesh.position.z += span;
+    }
   }
 
   _buildParticles() {
@@ -190,7 +312,8 @@ export class World {
   prebake(biome) {
     biomeGroundMaterial(biome);
     biomeSkylineTexture(biome);
-    skyTexture(biome.id, ...biome.sky, biome.stars);
+    const sky = skyTexture(biome.id, ...biome.sky, biome.stars, biome.sunPos, biome.skyFeature);
+    biomeEnvironment(this.renderer, biome.id, sky); // convolve the probe off the hot path
     this._propPool(biome);
   }
 
@@ -216,17 +339,31 @@ export class World {
 
     this.railMat.color.setHex(biome.laneGlow);
     this.laneMat.color.setHex(biome.laneGlow);
-    this.skyMat.map = skyTexture(biome.id, ...biome.sky, biome.stars);
+    const sky = skyTexture(biome.id, ...biome.sky, biome.stars, biome.sunPos, biome.skyFeature);
+    this.skyMat.map = sky;
     this.skyMat.needsUpdate = true;
+
+    // Reflections: let every surface mirror this biome's own sky.
+    const env = biomeEnvironment(this.renderer, biome.id, sky);
+    this.hasEnv = this.hasEnv || !!env;
+    if (env) {
+      this.scene.environment = env;
+      this.scene.environmentIntensity = biome.envIntensity ?? 0.8;
+    }
     this.skylineMat.map = biomeSkylineTexture(biome);
     this.skylineMat.map.repeat.set(biome.skyline.style === 'city' ? 5 : 4, 1);
     this.skylineMat.needsUpdate = true;
 
-    this.targetFog = new THREE.Color(biome.fog);
+    // Aerial perspective: distance must dissolve into the HORIZON, not into a
+    // darker colour than the sky. Mismatched fog is what turned every far-off
+    // shape into an unreadable grey-purple smear.
+    this.targetFog = new THREE.Color(biome.sky[2]).lerp(new THREE.Color(biome.fog), 0.45);
     this.targetFogDensity = biome.fogDensity;
     this.hemi.color.setHex(biome.hemi[0]);
     this.hemi.groundColor.setHex(biome.hemi[1]);
-    this.hemi.intensity = biome.hemi[2];
+    // The probe already supplies sky ambience; leaving the hemisphere light at
+    // full strength on top of it flattens everything back out.
+    this.hemi.intensity = biome.hemi[2] * (this.hasEnv ? 0.72 : 1);
     this.sun.color.setHex(biome.sun[0]);
     this.sun.intensity = biome.sun[1];
     this.sunOffset = new THREE.Vector3(...biome.sunPos);
@@ -236,6 +373,8 @@ export class World {
     this.planetRing.material.color.setHex(biome.sun[0]);
     this.planet.visible = biome.id !== 1;
     this.planetRing.visible = biome.id !== 1;
+
+    this._applyRidgeStyle(biome);
 
     this.pMat.color.setHex(biome.particles.color);
     this.pMat.size = biome.particles.size;
@@ -282,6 +421,7 @@ export class World {
       this.scene.fog.density += (this.targetFogDensity - this.scene.fog.density) * Math.min(1, dt * 1.6);
     }
 
+    this._updateRidges(playerZ, playerX);
     this.sky.position.set(playerX * 0.3, 0, playerZ);
     this.skyline.position.set(playerX * 0.15, 20, playerZ);
     this.planetGroup.position.z = playerZ;

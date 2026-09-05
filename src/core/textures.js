@@ -1,7 +1,7 @@
 // Procedural texture bakery: every surface in XENO RUN is generated at runtime
 // (no binary assets to download) but at high resolution with matching normal maps.
 import * as THREE from 'three';
-import { fbm, worley, valueNoise, clamp, lerp } from './noise.js';
+import { fbm, worley, worley2, valueNoise, clamp, lerp } from './noise.js';
 
 const cache = new Map();
 
@@ -51,6 +51,23 @@ function heightToNormal(height, size, strength = 2.4) {
   return tex;
 }
 
+/** Pack a Float32Array (0..1) into a greyscale, non-colour-managed texture. */
+function toDataTexture(field, size, aniso = 8) {
+  const cv = canvas(size);
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  for (let i = 0; i < field.length; i++) {
+    const v = clamp(field[i] * 255, 0, 255);
+    const j = i * 4;
+    img.data[j] = v; img.data[j + 1] = v; img.data[j + 2] = v; img.data[j + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = aniso;
+  return tex; // linear space on purpose: this is data, not colour
+}
+
 function hexToRgb(hex) {
   return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
 }
@@ -68,6 +85,10 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
   const ctx = cv.getContext('2d');
   const img = ctx.createImageData(size, size);
   const height = new Float32Array(size * size);
+  // Per-texel roughness. A single scalar makes every surface read as the same
+  // moulded plastic; varying it is what separates wet asphalt from dry grit,
+  // polished crystal facet from its dusty seam.
+  const rough = new Float32Array(size * size);
   const base = hexToRgb(baseHex);
   const accent = hexToRgb(accentHex);
   const glow = hexToRgb(glowHex);
@@ -76,66 +97,167 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
     for (let x = 0; x < size; x++) {
       const u = x / size;
       const v = y / size;
-      let r, g, b, h;
+      let r, g, b, h, rgh = 0.6;
 
       const grain = fbm(u * 26, v * 26, 5, id * 13);
       const macro = fbm(u * 5, v * 5, 4, id * 7 + 3);
 
       if (style === 'crystal') {
-        const cell = worley(u * 7, v * 7, id);
-        const facet = clamp(cell * 1.5, 0, 1);
-        const t = clamp(facet * 0.75 + macro * 0.35, 0, 1);
-        r = lerp(base[0], accent[0], t) + grain * 26;
-        g = lerp(base[1], accent[1], t) + grain * 26;
-        b = lerp(base[2], accent[2], t) + grain * 30;
-        const vein = 1 - clamp(Math.abs(cell - 0.12) * 9, 0, 1);
-        r += glow[0] * vein * 0.55; g += glow[1] * vein * 0.55; b += glow[2] * vein * 0.55;
-        h = facet * 0.7 + grain * 0.3;
+        // Faceted crystal plating. F1 shades each facet as its own plane and
+        // the F2-F1 edge field lights the seams between them.
+        const [f1, f2, cellId] = worley2(u * 7, v * 7, id);
+        const edge = f2 - f1;
+        const facet = clamp(1 - f1 * 1.35, 0, 1);
+        const t = clamp(facet * 0.5 + macro * 0.16 + cellId * 0.42, 0, 1);
+        // each facet is cut at its own angle, so each takes the light differently
+        const tilt = 0.7 + cellId * 0.66;
+        r = (lerp(base[0], accent[0], t) + grain * 10) * tilt;
+        g = (lerp(base[1], accent[1], t) + grain * 10) * tilt;
+        b = (lerp(base[2], accent[2], t) + grain * 13) * tilt;
+        // glowing veins in the seams, brightest where three facets meet
+        const vein = Math.pow(clamp(1 - edge * 7, 0, 1), 1.7);
+        r += glow[0] * vein * 0.8; g += glow[1] * vein * 0.8; b += glow[2] * vein * 0.85;
+        // sparkle: rare specular flecks catching the light
+        // rare, not a dust storm: only the very top of the noise range
+        const sparkle = fbm(u * 210, v * 210, 2, id + 31) > 0.83 ? 1 : 0;
+        r += sparkle * 70; g += sparkle * 72; b += sparkle * 85;
+        h = facet * 0.62 + (1 - Math.min(1, edge * 6)) * -0.3 + grain * 0.12;
+        rgh = 0.14 + (1 - facet) * 0.5 + grain * 0.1 - sparkle * 0.1;
       } else if (style === 'city') {
-        const panelU = Math.floor(u * 8);
-        const panelV = Math.floor(v * 8);
-        const seam = (Math.abs((u * 8) % 1 - 0.5) > 0.47 || Math.abs((v * 8) % 1 - 0.5) > 0.47) ? 1 : 0;
-        const tint = valueNoise(panelU, panelV, id) * 0.28;
-        const scratch = fbm(u * 60, v * 12, 4, id + 5) * 0.22;
-        r = base[0] * (0.82 + tint + scratch);
-        g = base[1] * (0.82 + tint + scratch);
-        b = base[2] * (0.85 + tint + scratch);
-        if (seam) { r *= 0.45; g *= 0.45; b *= 0.5; }
-        const circuit = (Math.abs((u * 32) % 1 - 0.5) < 0.03 && panelV % 3 === 0) ? 1 : 0;
-        r += glow[0] * circuit * 0.7; g += glow[1] * circuit * 0.7; b += glow[2] * circuit * 0.7;
-        h = seam ? 0.15 : 0.6 + scratch;
+        // Rain-slick armour decking: bevelled panels, rivets, grime and wear.
+        const PX = 8;
+        const pu = u * PX, pv = v * PX;
+        const panelU = Math.floor(pu), panelV = Math.floor(pv);
+        const fu = pu % 1, fv = pv % 1;
+        const seamD = Math.min(Math.min(fu, 1 - fu), Math.min(fv, 1 - fv)); // 0 at the seam
+        const seam = seamD < 0.02 ? 1 : 0;
+        const idp = valueNoise(panelU, panelV, id);
+        const idp2 = valueNoise(panelU + 31, panelV - 17, id + 7);
+        const tint = idp * 0.34 - 0.12; // panels differ far more than before
+        const scratch = (fbm(u * 70, v * 14, 4, id + 5) - 0.5) * 0.26;
+        r = base[0] * (0.78 + tint + scratch);
+        g = base[1] * (0.78 + tint + scratch);
+        b = base[2] * (0.82 + tint + scratch);
+
+        // bevel: light catches the near edge, the far edge falls into shadow
+        const bevel = clamp((0.055 - seamD) / 0.055, 0, 1);
+        const lit = (fu < 0.5 ? 1 : -1) * 0.5 + (fv < 0.5 ? 1 : -1) * 0.5;
+        r += bevel * lit * 26; g += bevel * lit * 26; b += bevel * lit * 28;
+
+        // grime creeping out of every seam
+        const grime = Math.pow(clamp(1 - seamD * 9, 0, 1), 2) * (0.35 + idp * 0.4);
+        r *= 1 - grime * 0.55; g *= 1 - grime * 0.55; b *= 1 - grime * 0.5;
+        if (seam) { r *= 0.32; g *= 0.32; b *= 0.36; }
+
+        // rivets at the panel corners
+        const rvx = Math.min(fu, 1 - fu), rvy = Math.min(fv, 1 - fv);
+        const rd = Math.hypot(rvx - 0.055, rvy - 0.055);
+        const rivet = rd < 0.02 ? clamp((0.02 - rd) / 0.02, 0, 1) : 0;
+        r += rivet * 46; g += rivet * 48; b += rivet * 54;
+
+        // one panel in nine wears hazard chevrons
+        if (idp2 > 0.91) {
+          const chev = ((pu + pv) * 6) % 1 < 0.5 ? 1 : 0;
+          r = lerp(r, chev ? 210 : 40, 0.55);
+          g = lerp(g, chev ? 170 : 38, 0.55);
+          b = lerp(b, chev ? 40 : 42, 0.55);
+        }
+
+        // standing water: dark, mirror smooth
+        const puddle = clamp((fbm(u * 4.5, v * 4.5, 4, id + 77) - 0.55) * 3.2, 0, 1);
+        r *= 1 - puddle * 0.4; g *= 1 - puddle * 0.38; b *= 1 - puddle * 0.28;
+
+        // one lit conduit per panel, wherever that panel's hash puts it
+        const conduitAt = 0.18 + idp * 0.64;
+        const circuit = (idp2 < 0.34 && Math.abs(fu - conduitAt) < 0.018) ? 1 : 0;
+        r += glow[0] * circuit * 0.85; g += glow[1] * circuit * 0.85; b += glow[2] * circuit * 0.85;
+
+        h = seam ? 0.05 : 0.55 + scratch + bevel * 0.25 + rivet * 0.5;
+        rgh = seam ? 0.78 : 0.34 + scratch * 1.1 + grime * 0.5 - puddle * 0.33;
       } else if (style === 'jungle') {
+        // Living forest floor: loam, moss cushions, roots and spore glow.
         const moss = fbm(u * 14, v * 14, 5, id + 2);
-        const cell = worley(u * 12, v * 12, id + 8);
-        const t = clamp(moss * 1.2, 0, 1);
-        r = lerp(base[0], accent[0], t) + grain * 18;
-        g = lerp(base[1], accent[1], t) + grain * 24;
-        b = lerp(base[2], accent[2], t) + grain * 16;
-        const spore = 1 - clamp(cell * 6, 0, 1);
-        r += glow[0] * spore * 0.5; g += glow[1] * spore * 0.5; b += glow[2] * spore * 0.5;
-        h = moss * 0.8 + (1 - cell) * 0.2;
+        const [mf1, mf2, mcell] = worley2(u * 12, v * 12, id + 8);
+        const litter = fbm(u * 48, v * 22, 3, id + 21); // stretched: leaves, not dots
+        const t = clamp((moss - 0.28) * 1.5, 0, 1);
+        r = lerp(base[0], accent[0], t) + grain * 8;
+        g = lerp(base[1], accent[1], t) + grain * 11;
+        b = lerp(base[2], accent[2], t) + grain * 7;
+
+        // big patches of bare wet mud breaking up the green
+        const mud = clamp((fbm(u * 2.6, v * 2.6, 4, id + 55) - 0.52) * 2.6, 0, 1);
+        r = lerp(r, 74, mud * 0.7); g = lerp(g, 54, mud * 0.72); b = lerp(b, 33, mud * 0.7);
+
+        // dead leaf flecks scattered over the moss
+        const fleck = litter > 0.6 ? clamp((litter - 0.6) * 4.5, 0, 1) : 0;
+        r = lerp(r, 128, fleck * 0.5); g = lerp(g, 96, fleck * 0.42); b = lerp(b, 44, fleck * 0.4);
+
+        // roots snaking along the cell borders
+        const root = Math.pow(clamp(1 - (mf2 - mf1) * 5.5, 0, 1), 2.2);
+        r = lerp(r, 62, root * 0.6); g = lerp(g, 46, root * 0.55); b = lerp(b, 30, root * 0.5);
+
+        // spores pooling in the low ground between roots
+        // only a third of the cells actually fruit, otherwise it reads as polka dots
+        const fruiting = mcell > 0.62 ? clamp((mcell - 0.62) * 4, 0, 1) : 0;
+        const spore = fruiting * Math.pow(clamp(1 - mf1 * 2.9, 0, 1), 2.0) * clamp(1.2 - root, 0, 1);
+        r += glow[0] * spore * 0.85; g += glow[1] * spore * 0.85; b += glow[2] * spore * 0.8;
+
+        h = moss * 0.65 + root * 0.5 + fleck * 0.2 - mud * 0.25;
+        rgh = 0.5 + moss * 0.34 - spore * 0.25 - mud * 0.2 - clamp((fbm(u * 3.2, v * 3.2, 3, id + 44) - 0.55) * 2.4, 0, 1) * 0.3;
       } else if (style === 'magma') {
-        const crack = worley(u * 6, v * 6, id + 4);
-        const crackline = clamp(1 - crack * 4.2, 0, 1);
-        const rock = 0.35 + macro * 0.4 + grain * 0.25;
-        r = base[0] * rock;
-        g = base[1] * rock;
-        b = base[2] * rock;
-        const hot = Math.pow(crackline, 1.6);
-        r = lerp(r, glow[0], hot); g = lerp(g, glow[1], hot * 0.8); b = lerp(b, glow[2], hot * 0.4);
-        h = (1 - crackline) * 0.85 + grain * 0.15;
+        // Cooled basalt crust split by a live melt network.
+        // (F2 - F1) puts the glow ON the fracture lines; the old 1 - F1 lit the
+        // cell centres instead, which is why this deck was orange polka dots.
+        const [c1, c2] = worley2(u * 5.5, v * 5.5, id + 4);
+        const crackline = clamp(1 - (c2 - c1) * 6.5, 0, 1);
+        const [d1, d2] = worley2(u * 15, v * 15, id + 13);
+        const fine = clamp(1 - (d2 - d1) * 9, 0, 1) * 0.55;
+        const rock = 0.26 + macro * 0.34 + grain * 0.22;
+        const pit = fbm(u * 90, v * 90, 3, id + 61) > 0.63 ? 0.72 : 1; // pumice pitting
+        r = base[0] * rock * pit;
+        g = base[1] * rock * pit;
+        b = base[2] * rock * pit;
+
+        // temperature ramp: black rock -> deep red -> orange -> white core
+        const heat = Math.pow(Math.max(crackline, fine), 1.5) * (0.65 + macro * 0.5);
+        r = lerp(r, glow[0], clamp(heat * 1.25, 0, 1));
+        g = lerp(g, glow[1] * 0.85, clamp(heat * 0.95, 0, 1));
+        b = lerp(b, glow[2] * 0.5, clamp(heat * 0.6, 0, 1));
+        const core = Math.pow(crackline, 5);
+        r += core * 90; g += core * 78; b += core * 44;
+
+        h = (1 - Math.max(crackline, fine)) * 0.8 + grain * 0.14 + (1 - pit) * 0.3;
+        rgh = 0.94 - heat * 0.5 - grain * 0.08;
       } else {
-        // ice
-        const cell = worley(u * 5, v * 5, id + 6);
-        const crackline = clamp(1 - cell * 5.5, 0, 1);
-        const t = clamp(macro * 0.8 + grain * 0.3, 0, 1);
+        // ice: polished glacier over deep internal fracture planes
+        const [i1, i2] = worley2(u * 4.5, v * 4.5, id + 6);
+        const fracture = Math.pow(clamp(1 - (i2 - i1) * 7, 0, 1), 1.6);
+        const [j1, j2] = worley2(u * 11, v * 11, id + 19);
+        const hair = Math.pow(clamp(1 - (j2 - j1) * 11, 0, 1), 2) * 0.5; // hairline cracks
+        const t = clamp((macro - 0.35) * 1.1 + grain * 0.2, 0, 1);
         r = lerp(base[0], accent[0], t);
         g = lerp(base[1], accent[1], t);
         b = lerp(base[2], accent[2], t);
-        r = lerp(r, glow[0], crackline * 0.7);
-        g = lerp(g, glow[1], crackline * 0.7);
-        b = lerp(b, glow[2], crackline * 0.7);
-        h = macro * 0.55 + crackline * 0.45;
+
+        // wind-scoured striations running down the deck
+        const scour = fbm(u * 8, v * 90, 3, id + 33);
+        r *= 0.86 + scour * 0.26; g *= 0.86 + scour * 0.26; b *= 0.88 + scour * 0.22;
+
+        // trapped air bubbles
+        const bub = fbm(u * 120, v * 120, 2, id + 71) > 0.74 ? 1 : 0;
+        r += bub * 26; g += bub * 30; b += bub * 34;
+
+        const crack = Math.max(fracture, hair);
+        r = lerp(r, glow[0], crack * 0.75);
+        g = lerp(g, glow[1], crack * 0.75);
+        b = lerp(b, glow[2], crack * 0.7);
+
+        // drifted snow filling the hollows
+        const drift = clamp((fbm(u * 3.4, v * 3.4, 4, id + 88) - 0.56) * 2.8, 0, 1);
+        r = lerp(r, 232, drift * 0.45); g = lerp(g, 240, drift * 0.45); b = lerp(b, 250, drift * 0.42);
+
+        h = macro * 0.32 + crack * 0.4 + drift * 0.3;
+        rgh = 0.07 + drift * 0.75 + Math.pow(clamp(grain, 0, 1), 3) * 0.4 + crack * 0.2 - bub * 0.03;
       }
 
       const i = (y * size + x) * 4;
@@ -144,10 +266,15 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
       img.data[i + 2] = clamp(b, 0, 255);
       img.data[i + 3] = 255;
       height[y * size + x] = h;
+      rough[y * size + x] = clamp(rgh, 0.03, 1);
     }
   }
   ctx.putImageData(img, 0, 0);
-  const result = { map: toTexture(cv, 1), normalMap: heightToNormal(height, size, 2.0) };
+  const result = {
+    map: toTexture(cv, 1),
+    normalMap: heightToNormal(height, size, 2.0),
+    roughnessMap: toDataTexture(rough, size),
+  };
   cache.set(key, result);
   return result;
 }
@@ -174,9 +301,9 @@ export function alienSkin() {
       const blotch = fbm(u * 6, v * 6, 4, 11);
       const scale = clamp(1 - cell * 3.0, 0, 1);
 
-      let r = 62 + blotch * 96 + scale * 46;
-      let g = 122 + blotch * 128 + scale * 38;
-      let b = 138 + blotch * 78 + grain * 52;
+      let r = 58 + blotch * 62 + scale * 44;
+      let g = 118 + blotch * 78 + scale * 36;
+      let b = 132 + blotch * 50 + grain * 30;
       // softer dorsal shading band — keeps the form readable from behind
       const dorsal = Math.exp(-Math.pow((v - 0.5) * 5, 2));
       r *= 1 - dorsal * 0.2; r += 6;
@@ -212,48 +339,262 @@ export function alienSkin() {
 }
 
 /** Vertical gradient sky dome texture with stars / clouds bands. */
-export function skyTexture(id, topHex, midHex, bottomHex, starDensity = 0.0) {
+/**
+ * Full 360 degree equirectangular sky.
+ *
+ * The old version was a 512px square gradient, which is why distant sky read as
+ * flat banded mush: a sphere needs 2:1 and far more pixels. This bakes a real
+ * atmosphere — altitude gradient, wrapping volumetric cloud decks, a placed sun
+ * with forward-scattered halo, horizon haze and a layered starfield. It doubles
+ * as the scene's reflection probe, so its quality lifts every material too.
+ */
+export function skyTexture(id, topHex, midHex, bottomHex, starDensity = 0.0, sunPos = null, feature = null) {
   const key = `sky_${id}`;
   if (cache.has(key)) return cache.get(key);
-  const w = 512;
-  const h = 512;
+  const w = 2048;
+  const h = 1024;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d');
-
-  const grd = ctx.createLinearGradient(0, 0, 0, h);
   const toCss = (hex) => `#${hex.toString(16).padStart(6, '0')}`;
-  grd.addColorStop(0, toCss(topHex));
-  grd.addColorStop(0.55, toCss(midHex));
-  grd.addColorStop(1, toCss(bottomHex));
+
+  // ---- altitude gradient -------------------------------------------------
+  // On an equirectangular map the TRUE horizon is the exact vertical centre.
+  // Everything below v=0.5 is under the player's feet and never seen, so the
+  // horizon glow has to peak just above 0.5 — putting it lower (the old 0.8)
+  // buried the brightest part of the sky underground and left the visible half
+  // as a dull two-tone wash.
+  const grd = ctx.createLinearGradient(0, 0, 0, h);
+  const dark = (hex, f) => {
+    const [r, g, b] = hexToRgb(hex);
+    return `rgb(${(r * f) | 0},${(g * f) | 0},${(b * f) | 0})`;
+  };
+  grd.addColorStop(0.00, toCss(topHex));
+  grd.addColorStop(0.26, toCss(topHex));
+  grd.addColorStop(0.42, toCss(midHex));
+  grd.addColorStop(0.492, toCss(bottomHex)); // horizon burn, just above eye level
+  grd.addColorStop(0.512, dark(bottomHex, 0.62));
+  grd.addColorStop(0.62, dark(midHex, 0.42));
+  grd.addColorStop(1.00, dark(topHex, 0.5));
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
 
-  // Soft nebula bands
-  for (let i = 0; i < 26; i++) {
-    const y = Math.random() * h * 0.75;
-    const rad = 40 + Math.random() * 150;
-    const g2 = ctx.createRadialGradient(Math.random() * w, y, 0, Math.random() * w, y, rad);
-    g2.addColorStop(0, `rgba(255,255,255,${0.03 + Math.random() * 0.05})`);
-    g2.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g2;
-    ctx.fillRect(0, 0, w, h);
-  }
-
+  // ---- starfield (behind the clouds) -------------------------------------
   if (starDensity > 0) {
-    const count = (900 * starDensity) | 0;
+    // galactic band: a soft diagonal smear of unresolved stars
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.34);
+    ctx.rotate(-0.22);
+    const band = ctx.createLinearGradient(0, -h * 0.16, 0, h * 0.16);
+    band.addColorStop(0, 'rgba(180,200,255,0)');
+    band.addColorStop(0.5, `rgba(200,214,255,${0.1 * starDensity})`);
+    band.addColorStop(1, 'rgba(180,200,255,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(-w, -h * 0.16, w * 2, h * 0.32);
+    ctx.restore();
+
+    const count = (5200 * starDensity) | 0;
     for (let i = 0; i < count; i++) {
       const x = Math.random() * w;
-      const y = Math.random() * h * 0.62;
-      const a = Math.random() * 0.9 * (1 - y / (h * 0.7));
-      const s = Math.random() < 0.9 ? 1 : 2;
-      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      const y = Math.pow(Math.random(), 1.35) * h * 0.49; // stars only above the horizon
+      const fade = 1 - y / (h * 0.55);
+      const a = Math.random() * 0.95 * fade;
+      const s = Math.random() < 0.93 ? 1 : 2;
+      // real stars are not white: scatter across the blue-amber sequence
+      const t = Math.random();
+      const cr = t < 0.7 ? 255 : 200 + ((55 * t) | 0);
+      const cg = t < 0.7 ? 250 : 220;
+      const cb = t < 0.35 ? 255 : 215;
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
       ctx.fillRect(x, y, s, s);
     }
+    // a handful of bright ones with visible flare
+    for (let i = 0; i < 22 * starDensity; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h * 0.44;
+      const g2 = ctx.createRadialGradient(x, y, 0, x, y, 9);
+      g2.addColorStop(0, 'rgba(255,255,255,0.95)');
+      g2.addColorStop(0.3, 'rgba(200,225,255,0.35)');
+      g2.addColorStop(1, 'rgba(200,225,255,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(x - 9, y - 9, 18, 18);
+    }
   }
+
+  // ---- cloud decks: low-res seamless fbm, smoothly upscaled ---------------
+  // Sampling fbm per pixel at 2048x1024 would stall the phone for a second, so
+  // the noise is baked small and the canvas resampler does the interpolation.
+  const nw = 320;
+  const nh = 160;
+  // all three decks live in the visible upper hemisphere (v < 0.5)
+  const layers = [
+    { scale: 2.0, oct: 5, alpha: 0.42, yTop: 0.02, yBot: 0.40, tint: [255, 255, 255], op: 'lighter', bias: 0.50, gain: 2.5, pow: 1.5 },
+    { scale: 4.4, oct: 4, alpha: 0.80, yTop: 0.14, yBot: 0.47, tint: hexToRgb(midHex), op: 'source-over', bias: 0.46, gain: 2.7, pow: 1.2 },
+    { scale: 8.5, oct: 3, alpha: 0.45, yTop: 0.28, yBot: 0.495, tint: hexToRgb(bottomHex), op: 'lighter', bias: 0.52, gain: 2.6, pow: 1.8 },
+  ];
+  for (let li = 0; li < layers.length; li++) {
+    const L = layers[li];
+    const nc = document.createElement('canvas');
+    nc.width = nw; nc.height = nh;
+    const nctx = nc.getContext('2d');
+    const nimg = nctx.createImageData(nw, nh);
+    for (let y = 0; y < nh; y++) {
+      const v = y / nh;
+      // vertical mask keeps cloud out of the zenith and below the horizon
+      const band = clamp((v - L.yTop) / 0.12, 0, 1) * clamp((L.yBot - v) / 0.09, 0, 1);
+      for (let x = 0; x < nw; x++) {
+        const u = x / nw;
+        // polar coordinates make the noise wrap seamlessly around the dome
+        const a = u * Math.PI * 2;
+        const n = fbm(
+          Math.cos(a) * L.scale + L.scale + 4,
+          v * L.scale * 2.1 + id * 3.7 + li * 11,
+          L.oct,
+          id * 17 + li
+        );
+        const m = fbm(Math.sin(a) * L.scale + L.scale + 9, v * L.scale * 2.1 + 40, L.oct, id * 17 + li + 5);
+        // fbm spans ~0.08..0.92 with a 0.5 mean; bias sits near that mean so
+        // roughly half the dome carries cloud.
+        const ridged = Math.max(n, m) * 0.8 + Math.min(n, m) * 0.35;
+        const d = Math.pow(clamp((ridged - L.bias) * L.gain, 0, 1), L.pow);
+        const i = (y * nw + x) * 4;
+        nimg.data[i] = L.tint[0];
+        nimg.data[i + 1] = L.tint[1];
+        nimg.data[i + 2] = L.tint[2];
+        nimg.data[i + 3] = d * band * L.alpha * 255;
+      }
+    }
+    nctx.putImageData(nimg, 0, 0);
+    ctx.save();
+    ctx.globalCompositeOperation = L.op;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(nc, 0, 0, w, h);
+    ctx.restore();
+  }
+
+  // ---- signature sky feature ---------------------------------------------
+  if (feature === 'aurora' || feature === 'nebula') {
+    const aw = 512;
+    const ah = 256;
+    const ac = document.createElement('canvas');
+    ac.width = aw; ac.height = ah;
+    const actx = ac.getContext('2d');
+    const aimg = actx.createImageData(aw, ah);
+    for (let y = 0; y < ah; y++) {
+      const v = y / ah;
+      for (let x = 0; x < aw; x++) {
+        const u = x / aw;
+        const a = u * Math.PI * 2;
+        let r = 0, g = 0, bl = 0, alpha = 0;
+
+        if (feature === 'aurora') {
+          // Three curtains at different altitudes. Each is a soft vertical band
+          // whose base height ripples around the dome, streaked by noise —
+          // the same structure a real auroral arc has.
+          for (let c = 0; c < 3; c++) {
+            const base = 0.17 + c * 0.072
+              + Math.sin(a * (2 + c) + c * 2.1) * 0.045
+              + Math.sin(a * (5 + c * 2) + 1.3) * 0.022;
+            const height = 0.10 + c * 0.03;
+            const d = (v - base) / height;
+            if (d < -1.4 || d > 1.6) continue;
+            // brightest at the base, trailing off upward like real curtains
+            let band = Math.exp(-d * d * 2.2) * (d < 0 ? 1 : 1 - d * 0.45);
+            const streak = fbm(Math.cos(a) * 9 + 9, Math.sin(a) * 9 + v * 3 + c * 7, 4, id + c);
+            band *= clamp((streak - 0.42) * 2.6, 0, 1.15); // sparser: real curtains have gaps
+            if (band <= 0) continue;
+            // green core rising into cyan, magenta at the very top
+            const t = clamp((v - base + 0.06) / 0.2, 0, 1);
+            r += band * (40 + t * 190);
+            g += band * (255 - t * 60);
+            bl += band * (150 + t * 90);
+            alpha += band * 0.75;
+          }
+        } else {
+          // nebula: broad interstellar gas, two clashing hues
+          const n1 = fbm(Math.cos(a) * 2.4 + 3, v * 3.4 + 1.7, 5, id);
+          const n2 = fbm(Math.sin(a) * 3.1 + 8, v * 3.9 + 6.1, 5, id + 9);
+          const mask = clamp((1 - v * 2.0), 0, 1); // upper sky only
+          const c1 = Math.pow(clamp((n1 - 0.44) * 2.4, 0, 1), 1.6) * mask;
+          const c2 = Math.pow(clamp((n2 - 0.47) * 2.3, 0, 1), 1.9) * mask;
+          r = c1 * 150 + c2 * 220;
+          g = c1 * 70 + c2 * 60;
+          bl = c1 * 255 + c2 * 190;
+          alpha = (c1 * 0.5 + c2 * 0.38);
+        }
+
+        const i = (y * aw + x) * 4;
+        aimg.data[i] = clamp(r, 0, 255);
+        aimg.data[i + 1] = clamp(g, 0, 255);
+        aimg.data[i + 2] = clamp(bl, 0, 255);
+        aimg.data[i + 3] = clamp(alpha * 255, 0, 255);
+      }
+    }
+    actx.putImageData(aimg, 0, 0);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.globalAlpha = feature === 'aurora' ? 0.72 : 0.6;
+    ctx.drawImage(ac, 0, 0, w, h);
+    ctx.restore();
+  }
+
+  // ---- the sun, placed where the actual DirectionalLight sits -------------
+  if (sunPos) {
+    const [sx, sy, sz] = sunPos;
+    const len = Math.hypot(sx, sy, sz) || 1;
+    const ny = sy / len;
+    // matches THREE.SphereGeometry's UV convention for the sky dome
+    let u = Math.atan2(sz / len, -sx / len) / (Math.PI * 2);
+    u = (u % 1 + 1) % 1;
+    const v = Math.acos(clamp(ny, -1, 1)) / Math.PI;
+    const px = u * w;
+    const py = v * h;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    // wide forward-scatter bloom, then the disc
+    for (const [rad, alpha] of [[520, 0.16], [230, 0.2], [86, 0.34]]) {
+      const g3 = ctx.createRadialGradient(px, py, 0, px, py, rad);
+      g3.addColorStop(0, `rgba(255,246,224,${alpha})`);
+      g3.addColorStop(0.45, `rgba(255,214,168,${alpha * 0.32})`);
+      g3.addColorStop(1, 'rgba(255,190,140,0)');
+      ctx.fillStyle = g3;
+      ctx.fillRect(px - rad, py - rad, rad * 2, rad * 2);
+      // repeat across the seam so a sun near u=0 is not sliced in half
+      ctx.fillRect(px - rad + (px < w / 2 ? w : -w), py - rad, rad * 2, rad * 2);
+    }
+    const disc = ctx.createRadialGradient(px, py, 0, px, py, 30);
+    disc.addColorStop(0, 'rgba(255,255,252,0.95)');
+    disc.addColorStop(0.6, 'rgba(255,240,214,0.5)');
+    disc.addColorStop(1, 'rgba(255,230,200,0)');
+    ctx.fillStyle = disc;
+    ctx.fillRect(px - 30, py - 30, 60, 60);
+    ctx.restore();
+  }
+
+  // ---- horizon haze: the band that sells atmospheric depth ----------------
+  // Centred on the true horizon and faded out on BOTH sides, so it never
+  // leaves the hard seam a one-sided gradient used to cut across the sky.
+  const y0 = h * 0.36;
+  const y1 = h * 0.54;
+  const haze = ctx.createLinearGradient(0, y0, 0, y1);
+  const [hr, hg, hb] = hexToRgb(bottomHex);
+  haze.addColorStop(0.0, `rgba(${hr},${hg},${hb},0)`);
+  haze.addColorStop(0.55, `rgba(${hr},${hg},${hb},0.42)`);
+  haze.addColorStop(0.78, `rgba(${hr},${hg},${hb},0.62)`);
+  haze.addColorStop(1.0, `rgba(${hr},${hg},${hb},0)`);
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, y0, w, y1 - y0);
+
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.anisotropy = 8;
   cache.set(key, tex);
   return tex;
 }
@@ -371,7 +712,7 @@ export function panelTexture(hex = 0x9fb3c8, glowHex = 0x40e0ff) {
     for (let x = 0; x < size; x++) {
       const u = x / size;
       const v = y / size;
-      const brushed = fbm(u * 90, v * 8, 4, 17) * 0.35;
+      const brushed = (fbm(u * 90, v * 8, 4, 17) - 0.5) * 0.36;
       const seam = (Math.abs((v * 4) % 1 - 0.5) > 0.46) ? 1 : 0;
       let r = base[0] * (0.7 + brushed);
       let g = base[1] * (0.7 + brushed);

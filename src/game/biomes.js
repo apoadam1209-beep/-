@@ -229,6 +229,7 @@ export const BIOMES = [
     fogDensity: 0.0072,
     sky: [0x120a2e, 0x3a1c6b, 0x7b3fa8],
     stars: 1.0,
+    skyFeature: 'nebula',
     hemi: [0x6a4bff, 0x160c2e, 0.55],
     sun: [0xb98bff, 1.25],
     sunPos: [-24, 34, -30],
@@ -305,6 +306,7 @@ export const BIOMES = [
     fogDensity: 0.0074,
     sky: [0x02060f, 0x0d2b4d, 0x3f8fb8],
     stars: 0.9,
+    skyFeature: 'aurora',
     hemi: [0x9fe4ff, 0x0a1826, 0.7],
     sun: [0xd8f6ff, 1.35],
     sunPos: [22, 38, -30],
@@ -318,24 +320,82 @@ export const BIOMES = [
 ];
 
 const groundMatCache = new Map();
+
+/**
+ * Kill the tiling repeat.
+ *
+ * The deck is 24 m of texture repeated forever, and the human eye locks onto
+ * that rhythm instantly — it is the single biggest "this is a game, not a
+ * place" tell. This injects a large-scale, world-space noise field over the
+ * albedo and roughness, so no two stretches of floor look alike even though
+ * they share one texture. Costs a handful of ALU ops per pixel.
+ */
+function addDetailBreakup(mat, b) {
+  mat.userData.breakup = true;
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uWear = { value: b.ground.style === 'ice' || b.ground.style === 'city' ? 0.5 : 0.34 };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vXWorld;')
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n  vXWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        varying vec3 vXWorld;
+        uniform float uWear;
+        float xhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float xnoise(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(xhash(i), xhash(i + vec2(1, 0)), f.x),
+                     mix(xhash(i + vec2(0, 1)), xhash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float xfbm(vec2 p) {
+          return xnoise(p) * 0.6 + xnoise(p * 2.3) * 0.26 + xnoise(p * 5.1) * 0.14;
+        }`
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        float wear = xfbm(vXWorld.xz * 0.035);
+        float patch = xfbm(vXWorld.xz * 0.011 + 17.0);
+        diffuseColor.rgb *= 1.0 - uWear * (0.5 - wear) - 0.28 * (0.5 - patch);`
+      )
+      .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>
+        roughnessFactor = clamp(roughnessFactor + (wear - 0.5) * 0.45 + (patch - 0.5) * 0.3, 0.03, 1.0);`
+      );
+    mat.userData.shader = shader;
+  };
+}
+
 export function biomeGroundMaterial(b) {
   if (groundMatCache.has(b.id)) return groundMatCache.get(b.id);
-  const { map, normalMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
-  const m = map.clone();
-  const n = normalMap.clone();
-  m.needsUpdate = true;
-  n.needsUpdate = true;
-  m.repeat.set(b.ground.repeat[0], b.ground.repeat[1]);
-  n.repeat.set(b.ground.repeat[0], b.ground.repeat[1]);
-  m.wrapS = m.wrapT = n.wrapS = n.wrapT = THREE.RepeatWrapping;
+  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  const [ru, rv] = b.ground.repeat;
+  const clones = [map, normalMap, roughnessMap].map((t) => {
+    const c = t.clone();
+    c.wrapS = c.wrapT = THREE.RepeatWrapping;
+    c.repeat.set(ru, rv);
+    c.anisotropy = 16;
+    c.needsUpdate = true;
+    return c;
+  });
+  const [m, n, rm] = clones;
   const mat = new THREE.MeshStandardMaterial({
     map: m,
     normalMap: n,
-    normalScale: new THREE.Vector2(1.45, 1.45),
+    normalScale: new THREE.Vector2(1.7, 1.7),
+    roughnessMap: rm,
     roughness: b.ground.rough,
     metalness: b.ground.metal,
-    envMapIntensity: 0.7,
+    envMapIntensity: 1.15,
   });
+  addDetailBreakup(mat, b);
   groundMatCache.set(b.id, mat);
   return mat;
 }

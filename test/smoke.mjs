@@ -119,6 +119,8 @@ console.error = (...a) => { errors.push(a.map(String).join(' ')); origError(...a
 /* -------------------------------------------------------------- run it */
 const { Game } = await import(path.join(tmp, 'src/game/game.js'));
 const canvas = window.document.getElementById('game-canvas');
+const { performance: realClock } = await import('node:perf_hooks');
+const bootT0 = realClock.now();
 const game = new Game(canvas);
 
 function step(dt = 1 / 60) {
@@ -130,7 +132,24 @@ function step(dt = 1 / 60) {
 }
 
 step(); // first frame in menu
+const bootRealMs = realClock.now() - bootT0;
 console.log('state after boot:', game.state);
+console.log(`boot cost       : ${(bootRealMs).toFixed(0)} ms (first biome baked on the loading screen)`);
+if (bootRealMs > 2500) { console.log('FAIL: boot too slow — the loading screen would drag on a phone'); process.exit(1); }
+{
+  const { skyTexture, groundTexture } = await import(path.join(tmp, 'src/core/textures.js'));
+  const { BIOMES } = await import(path.join(tmp, 'src/game/biomes.js'));
+  const { performance: clock } = await import('node:perf_hooks'); // the fake now() is frame-driven
+  const b = BIOMES[4];
+  let t = clock.now();
+  skyTexture(99, ...b.sky, b.stars, b.sunPos);
+  const skyMs = clock.now() - t;
+  t = clock.now();
+  groundTexture(99, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  const groundMs = clock.now() - t;
+  console.log(`sky bake        : ${skyMs.toFixed(0)} ms   ground bake: ${groundMs.toFixed(0)} ms`);
+  if (skyMs > 1200 || groundMs > 1800) { console.log('FAIL: texture bake too slow for a phone'); process.exit(1); }
+}
 
 game.startRun();
 game.beginAfterTutorial?.();

@@ -179,7 +179,7 @@ export class Game {
         this._initComposer(false);
       }
       this.world.sun.castShadow = this.renderer.shadowMap.enabled;
-      this.scene.environmentIntensity = q === 'low' ? 0.65 : 0.85;
+      this.scene.environmentIntensity = q === 'low' ? 0.35 : 0.5;
       this.resize();
     } else if (key === 'sound') {
       this.audio.setMuted(value === 'off');

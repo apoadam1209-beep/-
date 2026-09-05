@@ -80,7 +80,7 @@ function averageAlbedo(b) {
     if (tag === 'canvas') { const c = el.getContext(); el.getContext = () => c; cvs.push(el); }
     return el;
   };
-  groundTexture(200 + b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  groundTexture(200 + b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow, b.ground.albedo);
   globalThis.document.createElement = realCreate;
 
   const img = cvs.map((c) => c.getContext()._last).find((d) => d && d.width >= 512);
@@ -164,7 +164,7 @@ function trackPixel(b, opts = {}) {
   irr = irr.map((c, i) => c + fillC[i] * 0.35 * (fp[1] / fl));
 
   // image-based lighting from the biome's own sky
-  const env = opts.envIrradiance ?? skyIrradiance(b, opts.envIntensity ?? 0.8);
+  const env = opts.envIrradiance ?? skyIrradiance(b, opts.envIntensity ?? 0.5);
   irr = irr.map((c, i) => c + env[i]);
 
   // Lambert
@@ -322,25 +322,83 @@ const hexL = (hex) => {
   const Y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
   return Y > 0.008856 ? 116 * Math.cbrt(Y) - 16 : 903.3 * Y;
 };
+/* world.js does NOT use biome.fog directly:
+ *     targetFog = Color(biome.sky[2]).lerp(Color(biome.fog), 0.45)
+ * so the colour the deck actually fades into is 55% sky. Measuring biome.fog
+ * on its own reported Crystal Canyon as a comfortable 20 L* split when the
+ * real gap was about 2, and the guard passed a biome that renders as one flat
+ * pale field. Replicate the blend exactly. */
+function effectiveFogL(b) {
+  const lin = (hex) => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
+    .map((v) => srgbToLinear(v / 255));
+  const sky = lin(b.sky[2]);
+  const fog = lin(b.fog);
+  const mix = sky.map((c, i) => c + (fog[i] - c) * 0.80);
+  const Y = 0.2126 * mix[0] + 0.7152 * mix[1] + 0.0722 * mix[2];
+  return Y > 0.008856 ? 116 * Math.cbrt(Y) - 16 : 903.3 * Y;
+}
+
 const MIN_HORIZON_SPLIT = 14;
+const MAX_FOG_LIFT = 6;
+/* Two separate questions, and the first version conflated them:
+ *   - is there a horizon at all?  deck vs sky lightness
+ *   - does distance BRIGHTEN the ground?  fog vs deck lightness
+ * The second is the one that produced the flat pale fields: fog lighter than
+ * the deck means the further you look the paler the ground gets, until ground
+ * and sky are the same field of colour. Distance may darken the deck as much
+ * as it likes; it must not wash it out. */
 console.log('\nhorizon read: can you tell the ground from the sky?');
-console.log('biome              deck L*   sky horizon L*   fog L*   split');
+console.log('biome              deck L*   sky L*   fog L*   sky split   fog lift');
 console.log('-----------------------------------------------------------------');
 for (const b of BIOMES) {
   const deck = lightness(trackPixel(b).bytes);
   const skyL = hexL(b.sky[2]);
-  const fogL = hexL(b.fog);
-  // fog is what the deck actually fades into, so it is the honest comparison
-  const split = Math.min(Math.abs(deck - skyL), Math.abs(deck - fogL) + 6);
-  const ok = split >= MIN_HORIZON_SPLIT;
+  const fogL = effectiveFogL(b);
+  const split = Math.abs(deck - skyL);
+  const lift = fogL - deck;
+  const ok = split >= MIN_HORIZON_SPLIT && lift <= MAX_FOG_LIFT;
   if (!ok) failures++;
   console.log(
-    `${b.name.padEnd(17)} ${deck.toFixed(0).padStart(7)} ${skyL.toFixed(0).padStart(16)} ` +
-    `${fogL.toFixed(0).padStart(8)} ${split.toFixed(0).padStart(7)}   ${ok ? '✓' : '✗ MELTS INTO SKY'}`
+    `${b.name.padEnd(17)} ${deck.toFixed(0).padStart(7)} ${skyL.toFixed(0).padStart(8)} ` +
+    `${fogL.toFixed(0).padStart(8)} ${split.toFixed(0).padStart(11)} ${lift.toFixed(0).padStart(10)}   ` +
+    `${ok ? '✓' : split < MIN_HORIZON_SPLIT ? '✗ NO HORIZON' : '✗ FOG WASHES THE GROUND PALE'}`
   );
 }
 console.log('-----------------------------------------------------------------');
-console.log(`required: >= ${MIN_HORIZON_SPLIT} L* between the deck and the sky it meets`);
+console.log(`required: >= ${MIN_HORIZON_SPLIT} L* deck-to-sky, fog no more than ${MAX_FOG_LIFT} L* above the deck`);
+
+/* ------------------------------------------------ can you see your lane?
+ * The markings are MeshBasicMaterial, so no lighting is involved and their
+ * screen value is pure arithmetic: colour -> ACES -> sRGB -> grade. */
+function unlitOnScreen(hex) {
+  const lin = [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]
+    .map((v) => srgbToLinear(v / 255));
+  const toned = acesFilmic(lin, 1.5);
+  let srgb = toned.map(linearToSrgb);
+  const pivot = GradeShader.uniforms.uPivot.value;
+  const contrast = GradeShader.uniforms.uContrast.value;
+  srgb = srgb.map((c) => Math.max(0, (c - pivot) * contrast + pivot));
+  return srgb.map((c) => Math.round(Math.min(1, c) * 255));
+}
+const MIN_LANE_SPLIT = 18;
+console.log('\nlane markings against the deck they are painted on');
+console.log('biome              lane RGB          L*    deck L*   split');
+console.log('-----------------------------------------------------------------');
+for (const b of BIOMES) {
+  const lane = unlitOnScreen(b.laneGlow);
+  const laneL = lightness(lane);
+  const deck = lightness(trackPixel(b).bytes);
+  const split = Math.abs(laneL - deck);
+  const ok = split >= MIN_LANE_SPLIT;
+  if (!ok) failures++;
+  console.log(
+    `${b.name.padEnd(17)} ${lane.map((v) => String(v).padStart(3)).join(' ')}   ` +
+    `${laneL.toFixed(0).padStart(4)}   ${deck.toFixed(0).padStart(6)}   ${split.toFixed(0).padStart(6)}   ` +
+    `${ok ? '✓' : '✗ LANE INVISIBLE'}`
+  );
+}
+console.log('-----------------------------------------------------------------');
+console.log(`required: >= ${MIN_LANE_SPLIT} L* between the lane markings and the deck`);
 if (failures) {
   console.log(`\nLIGHTING TEST FAILED ✗  (${failures}/${BIOMES.length} biomes unreadable)`);
   process.exit(1);

@@ -363,7 +363,9 @@ export class World {
     this.hasEnv = this.hasEnv || !!env;
     if (env) {
       this.scene.environment = env;
-      this.scene.environmentIntensity = biome.envIntensity ?? 0.8;
+      // the headless lighting model cannot see the probe, so keep its share small
+      // enough that the numbers the tests report stay close to the truth
+      this.scene.environmentIntensity = biome.envIntensity ?? 0.5;
     }
     this.skylineMat.map = biomeSkylineTexture(biome);
     this.skylineMat.map.repeat.set(biome.skyline.style === 'city' ? 5 : 4, 1);
@@ -372,7 +374,9 @@ export class World {
     // Aerial perspective: distance must dissolve into the HORIZON, not into a
     // darker colour than the sky. Mismatched fog is what turned every far-off
     // shape into an unreadable grey-purple smear.
-    this.targetFog = new THREE.Color(biome.sky[2]).lerp(new THREE.Color(biome.fog), 0.45);
+    // 0.45 left the fog 55% sky, so the deck faded into its own lightness and
+    // the horizon vanished. The biome's fog colour now leads.
+    this.targetFog = new THREE.Color(biome.sky[2]).lerp(new THREE.Color(biome.fog), 0.80);
     this.targetFogDensity = biome.fogDensity;
     // Hue from the palette, brightness from the intensity — see core/light.js.
     this.hemi.color.copy(normalisedLightColor(biome.hemi[0], 1));

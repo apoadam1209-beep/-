@@ -36,7 +36,7 @@ export const BIOMES = [
     name: 'CRYSTAL CANYON',
     tag: 'Bioluminescent shard fields of Kepler-9c',
     accent: 0x8a5bff,
-    fog: 0x3d3363,
+    fog: 0x1f1935,
     fogDensity: 0.0030,
     // Daylight. The five worlds now alternate bright/dark so the run never
     // spends more than one biome in the same key.
@@ -46,7 +46,7 @@ export const BIOMES = [
     hemi: [0xa8bcf0, 0x39304f, 1.15],
     sun: [0xffe6c0, 2.5],
     sunPos: [-24, 34, -30],
-    ground: { style: 'crystal', base: 0x2a1c4d, accent: 0x5b3f9e, glow: 0x9b6bff, repeat: [3, 8], rough: 0.45, metal: 0.25 },
+    ground: { style: 'crystal', base: 0x2a1c4d, accent: 0x5b3f9e, glow: 0x9b6bff, repeat: [3, 8], rough: 0.45, metal: 0.25, albedo: 0.075 },
     laneGlow: 0x9b6bff,
     skyline: { style: 'spires', color: 0x3b3260 },
     prop: crystalProp,
@@ -77,7 +77,7 @@ export const BIOMES = [
     name: 'SPORE JUNGLE',
     tag: 'Living fungal canopy that breathes with you',
     accent: 0x39e6a0,
-    fog: 0x2f5c3f,
+    fog: 0x16301f,
     fogDensity: 0.0044,
     // Daylight filtering down through the canopy.
     sky: [0x14508e, 0x5d9ab0, 0xbcd489],
@@ -86,7 +86,7 @@ export const BIOMES = [
     hemi: [0xbfe8d8, 0x1c3a22, 1.1],
     sun: [0xfff2cc, 2.4],
     sunPos: [18, 44, -34],
-    ground: { style: 'jungle', base: 0x1d3a24, accent: 0x3f7a3c, glow: 0x6bffb0, repeat: [3, 8], rough: 0.85, metal: 0.0 },
+    ground: { style: 'jungle', base: 0x1d3a24, accent: 0x3f7a3c, glow: 0x6bffb0, repeat: [3, 8], rough: 0.85, metal: 0.0, albedo: 0.078 },
     laneGlow: 0x6bffb0,
     skyline: { style: 'trees', color: 0x1e4530 },
     prop: jungleProp,
@@ -105,7 +105,7 @@ export const BIOMES = [
     hemi: [0xff8a3d, 0x2a0a05, 1.3],
     sun: [0xffb066, 2.9],
     sunPos: [-20, 26, -22],
-    ground: { style: 'magma', base: 0x3a2622, accent: 0x6b3a24, glow: 0xff6a1f, repeat: [3, 8], rough: 0.75, metal: 0.2 },
+    ground: { style: 'magma', base: 0x3a2622, accent: 0x6b3a24, glow: 0xff6a1f, repeat: [3, 8], rough: 0.75, metal: 0.2, albedo: 0.10 },
     laneGlow: 0xff8a3d,
     skyline: { style: 'mountains', color: 0x2b0d06 },
     prop: magmaProp,
@@ -199,7 +199,7 @@ function addDetailBreakup(mat, b) {
 const sideMatCache = new Map();
 export function biomeSideMaterial(b) {
   if (sideMatCache.has(b.id)) return sideMatCache.get(b.id);
-  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow, b.ground.albedo);
   const clones = [map, normalMap, roughnessMap].map((t) => {
     const c = t.clone();
     c.wrapS = c.wrapT = THREE.RepeatWrapping;
@@ -219,7 +219,7 @@ export function biomeSideMaterial(b) {
     color: new THREE.Color(0x8d93a8),
     roughness: Math.min(1, b.ground.rough + 0.25),
     metalness: b.ground.metal * 0.35,
-    envMapIntensity: 0.7,
+    envMapIntensity: 0.5,
   });
   addDetailBreakup(mat, b);
   sideMatCache.set(b.id, mat);
@@ -228,7 +228,7 @@ export function biomeSideMaterial(b) {
 
 export function biomeGroundMaterial(b) {
   if (groundMatCache.has(b.id)) return groundMatCache.get(b.id);
-  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow);
+  const { map, normalMap, roughnessMap } = groundTexture(b.id, b.ground.style, b.ground.base, b.ground.accent, b.ground.glow, b.ground.albedo);
   const [ru, rv] = b.ground.repeat;
   const clones = [map, normalMap, roughnessMap].map((t) => {
     const c = t.clone();
@@ -246,7 +246,7 @@ export function biomeGroundMaterial(b) {
     roughnessMap: rm,
     roughness: b.ground.rough,
     metalness: b.ground.metal,
-    envMapIntensity: 1.15,
+    envMapIntensity: 0.8,
   });
   addDetailBreakup(mat, b);
   groundMatCache.set(b.id, mat);

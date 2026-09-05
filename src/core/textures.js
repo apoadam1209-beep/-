@@ -141,7 +141,7 @@ function hexToRgb(hex) {
  * Ground surface for a biome.
  * style: 'crystal' | 'city' | 'jungle' | 'magma' | 'ice'
  */
-export function groundTexture(id, style, baseHex, accentHex, glowHex) {
+export function groundTexture(id, style, baseHex, accentHex, glowHex, albedoTarget = 0.135) {
   const key = `ground_${id}`;
   if (cache.has(key)) return cache.get(key);
 
@@ -334,7 +334,11 @@ export function groundTexture(id, style, baseHex, accentHex, glowHex) {
       rough[y * size + x] = clamp(rgh, 0.03, 1);
     }
   }
-  normaliseAlbedo(img.data, size * size, 0.135);
+  // Normalising every deck to one reflectance fixed the 10x palette spread but
+  // created a new problem: a daylight world and a night world then reflect the
+  // same fraction of very different amounts of light, so the daylight deck
+  // washes out pale. The target is per-biome, set against the light it stands in.
+  normaliseAlbedo(img.data, size * size, albedoTarget);
 
   ctx.putImageData(img, 0, 0);
   const result = {

@@ -18,13 +18,32 @@ const tick = setInterval(() => {
   loadingText.textContent = steps[i];
 }, 420);
 
+function fail(title, detail) {
+  clearInterval(tick);
+  loadingText.innerHTML =
+    `<b style="color:#ff6b6b">${title}</b><br><small style="opacity:.75">${String(detail).slice(0, 300)}</small>` +
+    `<br><br><small>Try another browser (Chrome / Safari) or set Graphics to LOW.</small>`;
+}
+
+// nothing may fail silently on a phone we cannot inspect
+window.addEventListener('error', (e) => fail('Startup error', e.message || e.error));
+window.addEventListener('unhandledrejection', (e) => fail('Startup error', e.reason && e.reason.message));
+
 function boot() {
+  // make sure WebGL really exists before we build a world
+  try {
+    const probe = document.createElement('canvas');
+    const gl = probe.getContext('webgl2') || probe.getContext('webgl') || probe.getContext('experimental-webgl');
+    if (!gl) { fail('WebGL is not available', 'This browser has 3D graphics disabled.'); return; }
+  } catch (err) {
+    fail('WebGL is not available', err.message);
+    return;
+  }
   try {
     window.__game = new Game(canvas);
   } catch (err) {
     console.error(err);
-    loadingText.innerHTML = `WebGL failed to start.<br><small>${err.message}</small>`;
-    clearInterval(tick);
+    fail('Failed to start', err && err.message);
     return;
   }
   clearInterval(tick);

@@ -296,9 +296,41 @@ for (let i = 0; i < 60 * 420; i++) {
   const bodyBox = new THREE.Box3().setFromObject(game.alien.hips);
   const bs = new THREE.Vector3(); bodyBox.getSize(bs);
   console.log('creature body    :', bs.x.toFixed(2), 'x', bs.y.toFixed(2), 'x', bs.z.toFixed(2), 'm');
+  /* The Reaper used to be pinned 3 m off the lens, where a 2 m drone covered
+   * the whole top of the frame and hid the road. Measure how much of the
+   * screen it actually eats, both while safe and while it is on top of you. */
+  const reaperFrame = (danger) => {
+    game.hunter.gap = danger ? 8 : 46; // about to be caught / running clean
+    for (let i = 0; i < 90; i++) game.hunter.update(1 / 60, game.p, 40, game.camera);
+    // Solid geometry only: the additive halo washes the screen but you can
+    // still see obstacles through it, whereas hull blocks the view outright.
+    const box = new THREE.Box3();
+    game.hunter.group.updateMatrixWorld(true);
+    game.hunter.group.traverse((o) => { if (o.isMesh) box.expandByObject(o); });
+    const c = new THREE.Vector3(); box.getCenter(c);
+    const pts = [];
+    for (const xs of ['min', 'max']) for (const ys of ['min', 'max']) for (const zs of ['min', 'max']) {
+      pts.push(new THREE.Vector3(box[xs].x, box[ys].y, box[zs].z).project(game.camera));
+    }
+    const ys = pts.map((p) => p.y), xs2 = pts.map((p) => p.x);
+    const cp = c.clone().project(game.camera);
+    return {
+      cy: cp.y,
+      hPct: ((Math.max(...ys) - Math.min(...ys)) / 2) * 100,
+      wPct: ((Math.max(...xs2) - Math.min(...xs2)) / 2) * 100,
+      bottom: Math.min(...ys),
+    };
+  };
+  const safeF = reaperFrame(false);
+  const dangerF = reaperFrame(true);
+  console.log(`reaper (safe)    : centre y ${safeF.cy.toFixed(2)}, covers ${safeF.hPct.toFixed(0)}% h / ${safeF.wPct.toFixed(0)}% w, lower edge y ${safeF.bottom.toFixed(2)}`);
+  console.log(`reaper (closing) : centre y ${dangerF.cy.toFixed(2)}, covers ${dangerF.hPct.toFixed(0)}% h / ${dangerF.wPct.toFixed(0)}% w, lower edge y ${dangerF.bottom.toFixed(2)}`);
+  if (safeF.hPct > 34) fail(`Reaper eats ${safeF.hPct.toFixed(0)}% of the frame while you are safe — it blocks the road`);
+  if (safeF.bottom < 0.02) fail(`Reaper hangs down to y ${safeF.bottom.toFixed(2)} while safe — it overlaps the track`);
+  // Even at the moment it catches you, you have to be able to see the road.
+  if (dangerF.hPct > 80) fail(`Reaper eats ${dangerF.hPct.toFixed(0)}% of the frame when closing — the player is blinded`);
   const hunterBox = new THREE.Box3().setFromObject(game.hunter.group);
   const hc = new THREE.Vector3(); hunterBox.getCenter(hc); hc.project(game.camera);
-  console.log('reaper NDC       :', hc.x.toFixed(2), hc.y.toFixed(2), 'depth', hc.z.toFixed(3));
   const near = game.pool.active.filter(e => e.mesh.position.z < game.p.z && e.mesh.position.z > game.p.z - 120).length;
   console.log('objects ahead    :', near);
 }

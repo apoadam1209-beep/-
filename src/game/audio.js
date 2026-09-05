@@ -68,7 +68,10 @@ export class AudioEngine {
   }
 
   setBiome(name) { this.scaleName = name; }
-  setIntensity(v) { this.intensity = v; this.bpm = 122 + v * 34; }
+  setIntensity(v) {
+    this.intensity = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+    this.bpm = 122 + this.intensity * 34;
+  }
 
   _scale() {
     const scales = {
@@ -86,7 +89,17 @@ export class AudioEngine {
     return roots[this.scaleName] || 55;
   }
 
+  /** Guard every value that reaches the audio graph. */
+  _num(v, fallback) {
+    return Number.isFinite(v) ? v : fallback;
+  }
+
   _note(midi, time, dur, type, gain, detune = 0) {
+    midi = this._num(midi, 60);
+    dur = Math.max(0.02, this._num(dur, 0.2));
+    gain = Math.max(0.0001, this._num(gain, 0.05));
+    detune = this._num(detune, 0);
+    time = this._num(time, this.ctx.currentTime);
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     o.type = type;
@@ -126,8 +139,18 @@ export class AudioEngine {
     s.start(time); s.stop(time + 0.25);
   }
 
-  /** call every frame */
+  /** call every frame — sound can never be allowed to break the game loop */
   update(dt) {
+    try {
+      this._update(dt);
+    } catch (err) {
+      this._fails = (this._fails || 0) + 1;
+      console.warn('audio step failed', err);
+      if (this._fails > 3) { this.playing = false; this.enabled = false; } // mute rather than disturb play
+    }
+  }
+
+  _update(dt) {
     if (!this.ctx || !this.playing) { this.beat *= Math.max(0, 1 - dt * 4); return; }
     const spb = 60 / this.bpm / 2; // 8th notes
     while (this._nextNoteTime < this.ctx.currentTime + 0.15) {
@@ -140,11 +163,11 @@ export class AudioEngine {
       this._hat(t, s % 8 === 6);
       if (s % 8 === 0) this._note(root - 12, t, 0.55, 'sawtooth', 0.13, -6);
       if (s % 2 === 0) {
-        const n = scale[(s / 2 + (s % 16 === 0 ? 2 : 0)) % scale.length];
+        const n = scale[Math.floor(s / 2 + (s % 16 === 0 ? 2 : 0)) % scale.length];
         this._note(root + 12 + n, t, 0.22, 'square', 0.055 + this.intensity * 0.03, 5);
       }
       if (s % 16 === 8) {
-        const n = scale[(s / 3) % scale.length];
+        const n = scale[Math.floor(s / 3) % scale.length];
         this._note(root + 24 + n, t, 0.7, 'triangle', 0.05);
       }
       this._step = (s + 1) % 64;
@@ -157,6 +180,10 @@ export class AudioEngine {
   /* --------------------------------------------------------------- SFX */
   _blip(freqA, freqB, dur, type = 'square', gain = 0.22) {
     if (!this.ctx || !this.enabled) return;
+    freqA = Math.max(20, this._num(freqA, 440));
+    freqB = Math.max(20, this._num(freqB, 440));
+    dur = Math.max(0.02, this._num(dur, 0.2));
+    gain = Math.max(0.0001, this._num(gain, 0.1));
     const t = this.ctx.currentTime;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -171,6 +198,9 @@ export class AudioEngine {
 
   _noise(dur, freq, gain = 0.3, type = 'bandpass') {
     if (!this.ctx || !this.enabled) return;
+    dur = Math.max(0.02, this._num(dur, 0.2));
+    freq = Math.max(40, this._num(freq, 800));
+    gain = Math.max(0.0001, this._num(gain, 0.2));
     const t = this.ctx.currentTime;
     const s = this.ctx.createBufferSource();
     s.buffer = this.noiseBuf;
@@ -186,20 +216,24 @@ export class AudioEngine {
     s.start(t); s.stop(t + dur + 0.02);
   }
 
-  jump() { this._blip(320, 720, 0.16, 'triangle', 0.22); this._noise(0.12, 900, 0.12); }
-  land() { this._noise(0.12, 320, 0.16, 'lowpass'); }
-  slide() { this._noise(0.32, 1800, 0.2, 'bandpass'); }
-  orb() { this._blip(880, 1620, 0.09, 'square', 0.11); }
-  power() { this._blip(420, 1400, 0.35, 'sawtooth', 0.16); this._blip(620, 1900, 0.4, 'triangle', 0.1); }
-  phase() { this._blip(1200, 340, 0.22, 'sine', 0.2); this._noise(0.18, 2600, 0.14); }
-  hit() { this._noise(0.42, 420, 0.42, 'lowpass'); this._blip(180, 48, 0.4, 'sawtooth', 0.28); }
-  smash() { this._noise(0.28, 1400, 0.3); this._blip(260, 70, 0.25, 'square', 0.2); }
-  overdrive() { this._blip(160, 900, 0.7, 'sawtooth', 0.26); this._blip(320, 1800, 0.75, 'square', 0.12); }
-  warp() { this._blip(220, 1600, 0.9, 'sine', 0.22); this._noise(0.8, 3000, 0.16); }
-  flip() { this._blip(900, 220, 0.5, 'triangle', 0.22); }
+  _safe(fn) { try { fn(); } catch (e) { /* audio is never critical */ } }
+
+  jump() { this._safe(() => { this._blip(320, 720, 0.16, 'triangle', 0.22); this._noise(0.12, 900, 0.12); }); }
+  land() { this._safe(() => { this._noise(0.12, 320, 0.16, 'lowpass'); }); }
+  slide() { this._safe(() => { this._noise(0.32, 1800, 0.2, 'bandpass'); }); }
+  orb() { this._safe(() => { this._blip(880, 1620, 0.09, 'square', 0.11); }); }
+  power() { this._safe(() => { this._blip(420, 1400, 0.35, 'sawtooth', 0.16); this._blip(620, 1900, 0.4, 'triangle', 0.1); }); }
+  phase() { this._safe(() => { this._blip(1200, 340, 0.22, 'sine', 0.2); this._noise(0.18, 2600, 0.14); }); }
+  hit() { this._safe(() => { this._noise(0.42, 420, 0.42, 'lowpass'); this._blip(180, 48, 0.4, 'sawtooth', 0.28); }); }
+  smash() { this._safe(() => { this._noise(0.28, 1400, 0.3); this._blip(260, 70, 0.25, 'square', 0.2); }); }
+  overdrive() { this._safe(() => { this._blip(160, 900, 0.7, 'sawtooth', 0.26); this._blip(320, 1800, 0.75, 'square', 0.12); }); }
+  warp() { this._safe(() => { this._blip(220, 1600, 0.9, 'sine', 0.22); this._noise(0.8, 3000, 0.16); }); }
+  flip() { this._safe(() => { this._blip(900, 220, 0.5, 'triangle', 0.22); }); }
   gameover() {
-    this._blip(420, 60, 1.1, 'sawtooth', 0.3);
-    this._noise(1.0, 600, 0.3, 'lowpass');
+    this._safe(() => {
+      this._blip(420, 60, 1.1, 'sawtooth', 0.3);
+      this._noise(1.0, 600, 0.3, 'lowpass');
+    });
   }
-  closeCall() { this._blip(1500, 2400, 0.07, 'sine', 0.1); }
+  closeCall() { this._safe(() => { this._blip(1500, 2400, 0.07, 'sine', 0.1); }); }
 }

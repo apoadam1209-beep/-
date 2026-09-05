@@ -120,6 +120,13 @@ export class Game {
     this.shieldBubble.visible = false;
     this.scene.add(this.shieldBubble);
 
+    // key light riding behind the runner: the sun is ahead, so without this
+    // the camera only ever sees the creature's unlit back
+    this.heroLight = new THREE.PointLight(0xd6e8ff, 3.2, 30, 2);
+    this.scene.add(this.heroLight);
+    this.heroRim = new THREE.PointLight(0x7fd8ff, 1.5, 16, 2);
+    this.scene.add(this.heroRim);
+
     // ground blob shadow (cheap, always on)
     this.blob = new THREE.Mesh(
       new THREE.CircleGeometry(0.7, 20),
@@ -475,13 +482,18 @@ export class Game {
 
     this.audio.update(dt);
 
-    if (this.state === 'running') this.updateRun(sdt);
-    else if (this.state === 'ready') this.updateIdle(sdt, true);
-    else if (this.state === 'menu') this.updateIdle(sdt, false);
-    else if (this.state === 'over') this.updateDeath(sdt);
+    try {
+      if (this.state === 'running') this.updateRun(sdt);
+      else if (this.state === 'ready') this.updateIdle(sdt, true);
+      else if (this.state === 'menu') this.updateIdle(sdt, false);
+      else if (this.state === 'over') this.updateDeath(sdt);
 
-    this.effects.update(sdt);
-    this.world.update(sdt, this.p ? this.p.z : 0, this.p ? this.p.x : 0, this.audio.beat);
+      this.effects.update(sdt);
+      this.world.update(sdt, this.p ? this.p.z : 0, this.p ? this.p.x : 0, this.audio.beat);
+    } catch (err) {
+      console.error(err);
+      this._reportError(err); // the picture keeps moving even if a system trips
+    }
 
     this.render();
 
@@ -530,6 +542,8 @@ export class Game {
     this.camera.lookAt(p.x, 1.25, p.z - 1.2);
     this.blob.position.set(p.x, 0.03, p.z);
     this.blob.scale.setScalar(1);
+    this.heroLight.position.set(p.x, 4.2, p.z + 4.5);
+    this.heroRim.position.set(p.x - 1.6, 1.5, p.z - 2.2);
     if (tutorial) this.spawner.update(p.z, 18, 0, this); // menu shot stays clean
     this.pool.cullBehind(p.z + 30);
     this.hunter.group.visible = false;
@@ -633,6 +647,11 @@ export class Game {
       this.shieldBubble.scale.setScalar(s);
       this.shieldBubble.material.opacity = 0.18 + Math.sin(this.runTime * 7) * 0.06;
     }
+
+    this.heroLight.position.set(p.x * 0.9, p.floorY + p.dir * 4.4, p.z + 5.0);
+    this.heroLight.color.setHex(this.inOverdrive ? 0xd8b0ff : 0xd6e8ff);
+    this.heroRim.position.set(p.x - 1.6, p.floorY + p.dir * 1.5, p.z - 2.2);
+    this.heroRim.color.setHex(this.world.biome.accent);
 
     this.blob.position.set(p.x, p.floorY + p.dir * 0.04, p.z);
     this.blob.rotation.x = p.dir > 0 ? -Math.PI / 2 : Math.PI / 2;

@@ -174,12 +174,13 @@ export function alienSkin() {
       const blotch = fbm(u * 6, v * 6, 4, 11);
       const scale = clamp(1 - cell * 3.0, 0, 1);
 
-      let r = 34 + blotch * 78 + scale * 34;
-      let g = 78 + blotch * 120 + scale * 26;
-      let b = 96 + blotch * 60 + grain * 40;
-      // dark dorsal shading band
+      let r = 62 + blotch * 96 + scale * 46;
+      let g = 122 + blotch * 128 + scale * 38;
+      let b = 138 + blotch * 78 + grain * 52;
+      // softer dorsal shading band — keeps the form readable from behind
       const dorsal = Math.exp(-Math.pow((v - 0.5) * 5, 2));
-      r *= 1 - dorsal * 0.35; g *= 1 - dorsal * 0.22; b *= 1 - dorsal * 0.12;
+      r *= 1 - dorsal * 0.2; r += 6;
+      g *= 1 - dorsal * 0.12; b *= 1 - dorsal * 0.06;
 
       const i = (y * size + x) * 4;
       img.data[i] = clamp(r, 0, 255);

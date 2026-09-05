@@ -25,7 +25,7 @@ export class Alien {
       normalScale: new THREE.Vector2(0.9, 0.9),
       emissiveMap: skin.emissiveMap,
       emissive: new THREE.Color(0x1effc9),
-      emissiveIntensity: 0.85,
+      emissiveIntensity: 1.05,
       roughness: 0.52,
       metalness: 0.08,
     });
@@ -36,7 +36,7 @@ export class Alien {
     this.skinMat = skinMat;
 
     const plateMat = new THREE.MeshStandardMaterial({
-      color: 0x1c2733,
+      color: 0x33465c,
       roughness: 0.35,
       metalness: 0.75,
       emissive: new THREE.Color(0x0a2a36),
@@ -367,7 +367,7 @@ export class Alien {
   }
 
   setOverdrive(on) {
-    this.skinMat.emissiveIntensity = on ? 2.4 : 0.85;
+    this.skinMat.emissiveIntensity = on ? 2.6 : 1.05;
     this.glowMat.emissiveIntensity = on ? 6 : 3.2;
     this.coreLight.intensity = on ? 6 : 2.2;
   }

@@ -180,6 +180,82 @@ for (let i = 0; i < 60 * 420; i++) {
   seenBiomes.add(game.world.biome.id);
 }
 
+/* ------------------------------------------------------------------------- *
+ * Phase C — AUDIO REGRESSION GUARD
+ * A fractional scale index once produced a NaN oscillator frequency, which
+ * threw inside the frame and froze the whole game every ~2 seconds. This mock
+ * AudioContext rejects every non-finite value that reaches an AudioParam.
+ * ------------------------------------------------------------------------- */
+{
+  const bad = [];
+  const check = (label, v) => {
+    if (!Number.isFinite(v)) bad.push(`${label} = ${v}`);
+    return v;
+  };
+  class Param {
+    constructor(name) { this.name = name; this._v = 0; }
+    set value(v) { check(`${this.name}.value`, v); this._v = v; }
+    get value() { return this._v; }
+    setValueAtTime(v, t) { check(`${this.name}.setValueAtTime`, v); check(`${this.name}.time`, t); return this; }
+    linearRampToValueAtTime(v, t) { check(`${this.name}.linearRamp`, v); check(`${this.name}.time`, t); return this; }
+    exponentialRampToValueAtTime(v, t) { check(`${this.name}.expRamp`, v); check(`${this.name}.time`, t); return this; }
+    setTargetAtTime(v, t, c) { check(`${this.name}.target`, v); return this; }
+    cancelScheduledValues() { return this; }
+  }
+  const node = (extra = {}) => ({
+    connect() {}, disconnect() {},
+    start(t) { check('start', t === undefined ? 0 : t); },
+    stop(t) { check('stop', t === undefined ? 0 : t); },
+    ...extra,
+  });
+  let audioClock = 0;
+  class MockAudioContext {
+    constructor() { this.sampleRate = 48000; this.state = 'running'; }
+    get currentTime() { return audioClock; }
+    get destination() { return node(); }
+    resume() { return Promise.resolve(); }
+    createGain() { return node({ gain: new Param('gain') }); }
+    createOscillator() { return node({ frequency: new Param('frequency'), detune: new Param('detune'), type: 'sine' }); }
+    createBiquadFilter() { return node({ frequency: new Param('filterFreq'), Q: new Param('Q'), type: 'bandpass' }); }
+    createDynamicsCompressor() { return node({ threshold: new Param('thr'), ratio: new Param('ratio'), knee: new Param('knee'), attack: new Param('atk'), release: new Param('rel') }); }
+    createBufferSource() { return node({ buffer: null }); }
+    createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+  }
+  Object.defineProperty(window, 'AudioContext', { value: MockAudioContext, configurable: true });
+  def('AudioContext', MockAudioContext);
+
+  const { AudioEngine } = await import(path.join(tmp, 'src/game/audio.js'));
+  const a = new AudioEngine();
+  a.init();
+  a._safe = (fn) => fn();            // let SFX errors surface
+
+  // Inspect the arguments BEFORE the internal clamps repair them, otherwise
+  // the defensive layer would hide a genuinely wrong note from this test.
+  for (const fn of ['_note', '_blip', '_noise']) {
+    const orig = a[fn].bind(a);
+    a[fn] = (...args) => { args.forEach((v, i) => { if (typeof v === 'number') check(`${fn} arg${i}`, v); }); return orig(...args); };
+  }
+  a.startMusic('crystal');
+
+  // 4 full 64-step patterns per biome scale, at several speeds
+  for (const scale of ['crystal', 'city', 'jungle', 'magma', 'ice']) {
+    a.setBiome(scale);
+    for (let i = 0; i < 900; i++) {
+      a.setIntensity(i / 900);
+      audioClock += 1 / 60;
+      a._update(1 / 60);             // the UNWRAPPED scheduler: nothing hidden
+    }
+  }
+  // and every sound effect
+  for (const fx of ['jump', 'land', 'slide', 'orb', 'power', 'phase', 'hit', 'smash', 'overdrive', 'warp', 'flip', 'gameover', 'closeCall']) a[fx]();
+  // hostile inputs must not leak into the audio graph either
+  a.setIntensity(NaN); a.setIntensity(Infinity); a.setIntensity(undefined);
+  for (let i = 0; i < 200; i++) { audioClock += 1 / 60; a._update(1 / 60); }
+
+  console.log('audio params checked, non-finite values:', bad.length);
+  if (bad.length) { console.log(bad.slice(0, 6)); console.log('FAIL: audio would crash the frame'); process.exit(1); }
+}
+
 // ---- framing check: is the hero actually well framed on screen? ----------
 {
   const THREE = await import(path.join(tmp, 'three-shim.js'));

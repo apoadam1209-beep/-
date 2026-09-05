@@ -184,8 +184,11 @@ export function truss(b, mat, x, y0, y1, z, width, rungs) {
  *  BIOME 1 — CRYSTAL CANYON
  * ========================================================================= */
 function crystalCluster(b) {
-  const shard = rock(pick([0x8f6fd8, 0xa88ce8, 0x6f5ab8]), 0.22, 0.2);
-  const stone = rock(0x6b5f8a, 0.85, 0.02);
+  // The rock is deliberately far darker than the deck. Jungle reads best of
+  // the five because dark trunks sit against a mid-tone floor; crystal had
+  // pale violet rock on a pale violet floor and dissolved into it.
+  const shard = rock(pick([0xb69cf0, 0xcbb6ff, 0x8f74d8]), 0.22, 0.2);
+  const stone = rock(0x342d4a, 0.85, 0.02);
   const lit = glow(pick([0xb98bff, 0x7fd8ff]), 1.7);
   // a rocky plinth the shards erupt from
   for (let i = 0; i < 4; i++) {
@@ -199,7 +202,7 @@ function crystalCluster(b) {
     b.add(SHAPES.icosa(), stone, [rand(-8, 8), rand(0, 1.1), rand(-10, 10)],
       [rand(0.5, 1.8), rand(0.4, 1.2), rand(0.5, 1.8)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
   }
-  const n = 7 + ((Math.random() * 6) | 0);
+  const n = 10 + ((Math.random() * 7) | 0);
   for (let i = 0; i < n; i++) {
     const h = rand(5, 17);
     const w = rand(0.7, 2.3);
@@ -215,8 +218,22 @@ function crystalCluster(b) {
   }
 }
 
+/** Low shards and rubble carpeting the canyon floor between the big features. */
+function shardField(b, count) {
+  const shard = rock(pick([0xb69cf0, 0x9f86e0]), 0.25, 0.2);
+  const stone = rock(0x342d4a, 0.9, 0.02);
+  for (let i = 0; i < count; i++) {
+    const x = rand(-9, 9), z = rand(-11, 11);
+    const h = rand(0.8, 3.4);
+    b.add(SHAPES.cone(5), shard, [x, h * 0.42, z], [rand(0.3, 0.9), h, rand(0.3, 0.9)],
+      [rand(-0.35, 0.35), rand(0, 6.28), rand(-0.35, 0.35)]);
+    b.add(SHAPES.icosa(), stone, [x + rand(-1.5, 1.5), rand(0, 0.7), z + rand(-1.5, 1.5)],
+      [rand(0.5, 1.6), rand(0.3, 0.9), rand(0.5, 1.6)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
+  }
+}
+
 function crystalArch(b) {
-  const stone = rock(0x6b5f8a, 0.8, 0.05);
+  const stone = rock(0x3a3252, 0.8, 0.05);
   const lit = glow(0x9b6bff, 1.5);
   const span = rand(9, 15);
   const height = rand(9, 14);
@@ -256,9 +273,9 @@ function crystalWreck(b) {
 
 /** A layered strata cliff walling in the canyon, veined with crystal. */
 function canyonWall(b) {
-  const strata = [0x7a6a92, 0x6b5c82, 0x8a7aa2, 0x5d5074];
+  const strata = [0x4a4062, 0x392f4e, 0x5b5078, 0x2e2640];
   const vein = glow(0x9b6bff, 1.4);
-  const scree = rock(0x6b5f8a, 0.9, 0.02);
+  const scree = rock(0x342d4a, 0.9, 0.02);
   const x = rand(4, 9);
   let y = 0;
   const beds = 7 + ((Math.random() * 5) | 0);
@@ -304,6 +321,7 @@ export function crystalProp() {
   else if (roll < 0.62) canyonWall(b);
   else if (roll < 0.84) crystalArch(b);
   else crystalWreck(b);
+  shardField(b, 14 + ((Math.random() * 10) | 0));
 
   // a slowly turning shard suspended above the canyon
   if (Math.random() < 0.55) {
@@ -603,10 +621,14 @@ export function jungleProp() {
  *  BIOME 4 — MAGMA FORGE
  * ========================================================================= */
 function basaltColumns(b) {
-  const stoneA = rock(0x3a3330, 0.95, 0.02);
-  const stoneB = rock(0x2a2422, 0.95, 0.02);
+  // Dark basalt on a dark deck measured a contrast of 4 — invisible. Ash-pale
+  // caps and far more exposed molten rock give the eye something to lock onto.
+  // A wide value range, not a mid-tone mush: near-black basalt against
+  // ash-pale crust is what makes the colonnade legible on a dark deck.
+  const stoneA = rock(0xc0b4a2, 0.95, 0.02);
+  const stoneB = rock(0x1e1a18, 0.95, 0.02);
   const hot = glow(0xff6a1f, 2.0);
-  const n = 7 + ((Math.random() * 7) | 0);
+  const n = 12 + ((Math.random() * 9) | 0);
   for (let i = 0; i < n; i++) {
     const h = rand(3, 16);
     const r = rand(0.9, 2.1);
@@ -614,14 +636,16 @@ function basaltColumns(b) {
     b.add(SHAPES.hex(), Math.random() < 0.5 ? stoneA : stoneB,
       [x, h * 0.5, z], [r, h, r], [rand(-0.05, 0.05), rand(0, 6.28), rand(-0.05, 0.05)]);
     // molten seam glowing between two columns
-    if (Math.random() < 0.25) b.add(SHAPES.box(), hot, [x, h * 0.45, z + r], [r * 1.1, h * 0.7, 0.1]);
+    if (Math.random() < 0.55) b.add(SHAPES.box(), hot, [x, h * 0.45, z + r], [r * 1.1, h * 0.7, 0.12]);
+    // ash crust capping the column
+    b.add(SHAPES.hex(), rock(0xd6cbb8, 0.9, 0.02), [x, h + 0.2, z], [r * 1.08, 0.45, r * 1.08], [0, rand(0, 6.28), 0]);
   }
 }
 
 /** A drilling gantry with pipework and a tapped magma feed. */
 function forgeRig(b) {
-  const steel = rock(0x5a5048, 0.55, 0.7, false);
-  const dark = rock(0x231e1c, 0.8, 0.4, false);
+  const steel = rock(0xb3a695, 0.55, 0.7, false);
+  const dark = rock(0x1c1917, 0.8, 0.4, false);
   const hot = glow(0xff7a1f, 2.4);
   const warn = glow(0xffd23f, 2.0);
 
@@ -649,9 +673,9 @@ function forgeRig(b) {
 
 /** A ledge pouring lava into a pool below. */
 function lavaFall(b) {
-  const stone = rock(0x332b28, 0.95, 0.02);
+  const stone = rock(0x211d1b, 0.95, 0.02);
   const molten = glow(0xff8a2f, 2.6);
-  const crust = rock(0x51372c, 0.9, 0.05);
+  const crust = rock(0xd2c5b0, 0.9, 0.05);
   const x = rand(-6, 6), z = rand(-6, 6);
   const h = rand(10, 20);
   b.add(SHAPES.box(), stone, [x, h * 0.5, z], [rand(7, 12), h, rand(5, 9)],
@@ -670,11 +694,13 @@ function lavaFall(b) {
 }
 
 function basaltColumnsSmall(b, x, z) {
-  const stone = rock(0x2a2422, 0.95, 0.02);
-  for (let i = 0; i < 5; i++) {
+  const stone = rock(0x221e1c, 0.95, 0.02);
+  const ash = rock(0xc8bca8, 0.92, 0.02);
+  for (let i = 0; i < 12; i++) {
     const h = rand(2, 6);
-    b.add(SHAPES.hex(), stone, [x + rand(-9, 9), h * 0.5, z + rand(-9, 9)],
-      [rand(0.8, 1.6), h, rand(0.8, 1.6)], [0, rand(0, 6.28), 0]);
+    const px = x + rand(-9, 9), pz = z + rand(-9, 9), pr = rand(0.8, 1.6);
+    b.add(SHAPES.hex(), stone, [px, h * 0.5, pz], [pr, h, pr], [0, rand(0, 6.28), 0]);
+    b.add(SHAPES.hex(), ash, [px, h + 0.15, pz], [pr * 1.05, 0.3, pr * 1.05], [0, rand(0, 6.28), 0]);
   }
 }
 
@@ -684,6 +710,7 @@ export function magmaProp() {
   if (roll < 0.42) basaltColumns(b);
   else if (roll < 0.75) forgeRig(b);
   else lavaFall(b);
+  basaltColumnsSmall(b, rand(-4, 4), rand(-4, 4));
 
   if (Math.random() < 0.4) {
     const s = new THREE.Mesh(SHAPES.icosa(), glow(0xff7a1f, 2.2));
@@ -702,8 +729,15 @@ function iceSeracs(b) {
   const ice = glass(0xbfe4f5, 0.72, 0x2f6f88);
   const packed = rock(0xd8ecf5, 0.35, 0.02);
   const deep = rock(0x6ea8c4, 0.2, 0.05);
+  // dark rock breaking through the ice: the glacier was uniformly pale and had
+  // nothing for the eye to measure the ice against
+  const outcrop = rock(0x2f3a46, 0.92, 0.03);
+  for (let i = 0; i < 7; i++) {
+    b.add(SHAPES.icosa(), outcrop, [rand(-9, 9), rand(0.2, 2.4), rand(-11, 11)],
+      [rand(1.4, 4.2), rand(1.2, 3.4), rand(1.4, 4.2)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
+  }
   // wind-packed drifts between the ice towers
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     b.add(SHAPES.icosa(), packed, [rand(-9, 9), rand(0, 1.2), rand(-11, 11)],
       [rand(1.5, 4.5), rand(0.5, 1.4), rand(1.5, 4.5)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
   }
@@ -716,6 +750,22 @@ function iceSeracs(b) {
       [rand(-0.16, 0.16), rand(0, 6.28), rand(-0.16, 0.16)]);
     b.add(SHAPES.icosa(), packed, [x + rand(-1, 1), rand(0.2, 1.2), z + rand(-1, 1)],
       [w * rand(1.2, 2.2), rand(0.8, 1.8), w * rand(1.2, 2.2)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
+  }
+}
+
+/** Broken ice and dark stone scattered across the drift. */
+function iceRubble(b, count) {
+  const ice = rock(0xcfe8f5, 0.2, 0.03);
+  const outcrop = rock(0x2f3a46, 0.92, 0.03);
+  for (let i = 0; i < count; i++) {
+    const x = rand(-9, 9), z = rand(-11, 11);
+    b.add(SHAPES.icosa(), i % 3 === 0 ? outcrop : ice, [x, rand(0.1, 1.6), z],
+      [rand(0.6, 2.6), rand(0.5, 2.0), rand(0.6, 2.6)], [rand(0, 3), rand(0, 6), rand(0, 3)]);
+    if (i % 4 === 0) {
+      const h = rand(1.5, 4);
+      b.add(SHAPES.cone(5), ice, [x + rand(-2, 2), h * 0.45, z + rand(-2, 2)],
+        [rand(0.4, 1.1), h, rand(0.4, 1.1)], [rand(-0.3, 0.3), rand(0, 6.28), rand(-0.3, 0.3)]);
+    }
   }
 }
 
@@ -816,6 +866,7 @@ export function iceProp() {
   else if (roll < 0.6) glacierWall(b);
   else if (roll < 0.84) frozenWreck(b);
   else iceStation(b);
+  iceRubble(b, 14 + ((Math.random() * 10) | 0));
 
   if (Math.random() < 0.4) {
     const s = new THREE.Mesh(SHAPES.octa(), glow(0xa9f0ff, 1.8));

@@ -27,6 +27,7 @@ export class World {
       fog: false,
     });
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 20), this.skyMat);
+    this.sky.name = 'skyDome';
     this.sky.renderOrder = -100;
     scene.add(this.sky);
 
@@ -44,6 +45,8 @@ export class World {
     );
     this.planetRing.position.copy(this.planet.position);
     this.planetRing.rotation.set(1.15, 0.4, 0.2);
+    this.planet.name = 'planet';
+    this.planetRing.name = 'planetRing';
     this.planetGroup.add(this.planet, this.planetRing);
 
     // ------------------------------------------------------------- lights
@@ -130,6 +133,7 @@ export class World {
     });
     this.skylineMat.map.repeat.set(4, 1);
     this.skyline = new THREE.Mesh(skyGeo, this.skylineMat);
+    this.skyline.name = 'skylineCylinder';
     this.skyline.position.y = 20;
     this.skyline.renderOrder = -90;
     scene.add(this.skyline);
@@ -191,6 +195,7 @@ export class World {
           mesh.scale.setScalar(layer.scale);
           mesh.renderOrder = -50;
           this.scene.add(mesh);
+          mesh.name = `ridge_${layer.name}`;
           this.ridges.push({ mesh, layer, side, seed: i * 2 + (side > 0 ? 1 : 0) });
         }
       }
@@ -487,6 +492,8 @@ export class World {
     // beat pulse on rails
     const b = 0.7 + beat * 0.5;
     this.railMat.color.setHex(this.biome.laneGlow).multiplyScalar(b);
-    this.laneMat.opacity = 0.25 + beat * 0.35;
+    // was 0.25 + beat*0.35, which silently overwrote the material's opacity
+    // every frame and kept the lane markings nearly invisible in daylight
+    this.laneMat.opacity = 0.62 + beat * 0.3;
   }
 }

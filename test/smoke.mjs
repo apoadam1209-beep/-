@@ -303,6 +303,49 @@ for (let i = 0; i < 60 * 420; i++) {
   console.log('objects ahead    :', near);
 }
 
+
+/* ------------------------------------------------------- frame occupancy */
+// A large dark shape has been sitting across the top of the frame in every
+// biome. Rather than guess, project every visible mesh's bounding sphere into
+// NDC and report whatever actually covers the upper-centre of the screen.
+if (process.env.XENO_FRAME_AUDIT) {
+  const THREE = await import(path.join(tmp, 'three-shim.js'));
+  const cam = game.camera;
+  cam.updateMatrixWorld(true);
+  cam.updateProjectionMatrix();
+  const vp = new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+  const hits = [];
+  game.scene.traverse((o) => {
+    if (!o.isMesh || !o.visible) return;
+    let p = o; while (p) { if (!p.visible) return; p = p.parent; }
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    const bs = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+    const c = bs.center.clone().applyMatrix4(vp);
+    const dist = bs.center.distanceTo(cam.position);
+    if (dist < bs.radius) return; // sky dome, ground tiles, ridge belts: expected
+    // angular radius, in NDC-y units
+    const angR = Math.asin(Math.min(1, bs.radius / dist));
+    const fovR = THREE.MathUtils.degToRad(cam.fov) / 2;
+    const ndcR = angR / fovR;
+    if (c.z < -1 || c.z > 1) return;
+    if (c.y + ndcR > 0.55 && Math.abs(c.x) - ndcR < 0.35) {
+      hits.push({ o, ndc: [c.x, c.y], ang: ndcR, dist, r: bs.radius });
+    }
+  });
+  hits.sort((a, b) => b.ang - a.ang);
+  console.log('\nwhat covers the top of the frame (NDC y > 0.55):');
+  console.log('object                  ndc x    ndc y  ndc rad   dist   radius  colour     material');
+  for (const h of hits.slice(0, 10)) {
+    const name = h.o.name || h.o.parent?.name || h.o.geometry.type;
+    const m = h.o.material;
+    const col = m && m.color ? '#' + m.color.getHexString() : '?';
+    console.log(
+      `${String(name).slice(0, 22).padEnd(22)} ${h.ndc[0].toFixed(2).padStart(6)} ${h.ndc[1].toFixed(2).padStart(7)} ` +
+      `${h.ang.toFixed(2).padStart(10)} ${h.dist.toFixed(0).padStart(6)} ${h.r.toFixed(0).padStart(8)}  ${col}  ${m?.type?.replace('Mesh','').replace('Material','') || ''}`
+    );
+  }
+  console.log('');
+}
 console.log('---------------------------------------------');
 console.log('frames simulated :', 6000 + 60 * 420);
 console.log('state            :', game.state);

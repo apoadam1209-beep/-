@@ -255,6 +255,60 @@ for (const b of BIOMES) {
 }
 console.log('-----------------------------------------------------------------');
 console.log(`readable range: deck L* ${MIN_L}..${MAX_L}, alien L* >= 26, separation >= 4`);
+
+/* ---------------------------------------------------- scenery parity check
+ * Spore Jungle looked far better than Crystal Canyon for two measurable
+ * reasons: it had four times the geometry per site, and its scenery spanned a
+ * wide value range (dark trunks, bright caps) against a mid-tone floor, while
+ * crystal was pale violet rock on a pale violet floor. Both are checked here so
+ * the five worlds cannot drift apart again.
+ */
+function sceneryStats(b, samples = 40) {
+  const pieces = [];
+  let tris = 0;
+  for (let i = 0; i < samples; i++) {
+    b.prop().traverse((o) => {
+      if (!o.isMesh) return;
+      const g = o.geometry;
+      const t = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+      tris += t;
+      const m = o.material;
+      if (m && m.color) {
+        pieces.push({ y: 0.2126 * m.color.r + 0.7152 * m.color.g + 0.0722 * m.color.b, w: t });
+      }
+    });
+  }
+  pieces.sort((p, q) => p.y - q.y);
+  const total = pieces.reduce((a, p) => a + p.w, 0);
+  const at = (frac) => {
+    let acc = 0;
+    for (const p of pieces) { acc += p.w; if (acc >= total * frac) return p.y; }
+    return pieces.length ? pieces[pieces.length - 1].y : 0;
+  };
+  return { tris: tris / samples, dark: lightness255(at(0.2)), bright: lightness255(at(0.8)) };
+}
+const lightness255 = (Y) => (Y > 0.008856 ? 116 * Math.cbrt(Y) - 16 : 903.3 * Y);
+
+const MIN_TRIS = 650;     // below this a world feels empty next to its neighbours
+const MIN_CONTRAST = 22;  // scenery must sit clearly above or below its floor
+
+console.log('\nscenery parity: is every world as furnished as the best one?');
+console.log('biome              tris/site   dark L*  bright L*   vs floor   ');
+console.log('-----------------------------------------------------------------');
+for (const b of BIOMES) {
+  const st = sceneryStats(b);
+  const floor = lightness(trackPixel(b).bytes);
+  const contrast = Math.max(Math.abs(st.bright - floor), Math.abs(st.dark - floor));
+  const ok = st.tris >= MIN_TRIS && contrast >= MIN_CONTRAST;
+  if (!ok) failures++;
+  console.log(
+    `${b.name.padEnd(17)} ${Math.round(st.tris).toString().padStart(9)}   ${st.dark.toFixed(0).padStart(7)}  ` +
+    `${st.bright.toFixed(0).padStart(9)}   ${contrast.toFixed(0).padStart(8)}   ` +
+    `${ok ? '✓' : '✗ ' + (st.tris < MIN_TRIS ? 'TOO EMPTY' : 'NO CONTRAST')}`
+  );
+}
+console.log('-----------------------------------------------------------------');
+console.log(`required: >= ${MIN_TRIS} tris/site, >= ${MIN_CONTRAST} L* against the floor`);
 if (failures) {
   console.log(`\nLIGHTING TEST FAILED ✗  (${failures}/${BIOMES.length} biomes unreadable)`);
   process.exit(1);

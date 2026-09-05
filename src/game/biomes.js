@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { groundTexture, skylineTexture } from '../core/textures.js';
 import { rand, pick } from '../core/noise.js';
+import { crystalProp, cityProp, jungleProp, magmaProp, iceProp } from './props.js';
 
 const geoCache = {};
 function geo(key, factory) {
@@ -24,200 +25,10 @@ function rock(color, rough = 0.85, metal = 0.05) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, flatShading: true });
 }
 
-/* ---------------------------------------------------------------- BIOME 1 */
-function crystalProp() {
-  const g = new THREE.Group();
-  const count = 2 + ((Math.random() * 3) | 0);
-  for (let i = 0; i < count; i++) {
-    const h = rand(4, 16);
-    const m = new THREE.Mesh(
-      geo('crystal', () => new THREE.ConeGeometry(1, 1, 6, 1)),
-      Math.random() < 0.45
-        ? new THREE.MeshStandardMaterial({
-            color: pick([0x7b4dff, 0x3ad7ff, 0xc44bff]),
-            emissive: new THREE.Color(pick([0x5a2bff, 0x22b6ff])),
-            emissiveIntensity: 1.1,
-            roughness: 0.15,
-            metalness: 0.2,
-            transparent: true,
-            opacity: 0.88,
-            flatShading: true,
-          })
-        : rock(0x3b2f5e, 0.6, 0.15)
-    );
-    m.scale.set(rand(0.6, 2.2), h, rand(0.6, 2.2));
-    m.position.set(rand(-4, 4), h * 0.5 - 0.4, rand(-8, 8));
-    m.rotation.set(rand(-0.16, 0.16), rand(0, 6.28), rand(-0.16, 0.16));
-    m.castShadow = true;
-    g.add(m);
-  }
-  // floating shard
-  if (Math.random() < 0.6) {
-    const s = new THREE.Mesh(
-      geo('octa', () => new THREE.OctahedronGeometry(1, 0)),
-      emissive(0x8a5bff, 1.8)
-    );
-    s.scale.setScalar(rand(0.5, 1.5));
-    s.position.set(rand(-5, 5), rand(8, 18), rand(-8, 8));
-    s.userData.spin = rand(0.2, 0.9);
-    g.add(s);
-  }
-  return g;
-}
 
-/* ---------------------------------------------------------------- BIOME 2 */
-function cityProp() {
-  const g = new THREE.Group();
-  const towers = 2 + ((Math.random() * 2) | 0);
-  for (let i = 0; i < towers; i++) {
-    const h = rand(14, 46);
-    const w = rand(3, 7);
-    const body = new THREE.Mesh(
-      geo('box', () => new THREE.BoxGeometry(1, 1, 1)),
-      rock(pick([0x1b2438, 0x232f47, 0x141c2c]), 0.55, 0.55)
-    );
-    body.scale.set(w, h, rand(3, 7));
-    body.position.set(rand(-6, 6), h * 0.5, rand(-9, 9));
-    body.castShadow = true;
-    g.add(body);
-    // neon signage strips
-    for (let s = 0; s < 3; s++) {
-      const sign = new THREE.Mesh(
-        geo('box', () => new THREE.BoxGeometry(1, 1, 1)),
-        emissive(pick([0xff2f8e, 0x28e0ff, 0xffd23f, 0x8a5bff]), 2.2)
-      );
-      sign.scale.set(0.25, rand(1.5, 6), rand(0.6, 2.4));
-      sign.position.set(
-        body.position.x + (Math.random() < 0.5 ? -w / 2 - 0.2 : w / 2 + 0.2),
-        rand(4, h - 3),
-        body.position.z + rand(-2, 2)
-      );
-      g.add(sign);
-    }
-  }
-  // hovering ad drone
-  if (Math.random() < 0.5) {
-    const d = new THREE.Mesh(geo('box', () => new THREE.BoxGeometry(1, 1, 1)), emissive(0x28e0ff, 2.4));
-    d.scale.set(2.6, 0.16, 1.2);
-    d.position.set(rand(-8, 8), rand(10, 22), rand(-8, 8));
-    d.userData.bob = rand(0.4, 1.2);
-    g.add(d);
-  }
-  return g;
-}
 
-/* ---------------------------------------------------------------- BIOME 3 */
-function jungleProp() {
-  const g = new THREE.Group();
-  const count = 2 + ((Math.random() * 3) | 0);
-  for (let i = 0; i < count; i++) {
-    const h = rand(4, 13);
-    const stalk = new THREE.Mesh(
-      geo('cyl', () => new THREE.CylinderGeometry(0.5, 0.8, 1, 7)),
-      rock(0x5d7a4a, 0.9)
-    );
-    stalk.scale.set(rand(0.5, 1.3), h, rand(0.5, 1.3));
-    stalk.position.set(rand(-6, 6), h * 0.5, rand(-9, 9));
-    stalk.castShadow = true;
-    g.add(stalk);
-    const capColor = pick([0x39e6a0, 0x6ff0ff, 0xd2ff5e, 0xff8ad0]);
-    const cap = new THREE.Mesh(
-      geo('sphere', () => new THREE.SphereGeometry(1, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55)),
-      new THREE.MeshStandardMaterial({
-        color: capColor,
-        emissive: new THREE.Color(capColor),
-        emissiveIntensity: 0.75,
-        roughness: 0.6,
-        flatShading: true,
-      })
-    );
-    const cs = rand(1.6, 4.4) * stalk.scale.x;
-    cap.scale.set(cs, cs * rand(0.5, 0.9), cs);
-    cap.position.set(stalk.position.x, h, stalk.position.z);
-    cap.castShadow = true;
-    g.add(cap);
-  }
-  // hanging vine
-  const vine = new THREE.Mesh(geo('cyl', () => new THREE.CylinderGeometry(0.5, 0.8, 1, 7)), rock(0x2f4a2c, 0.95));
-  vine.scale.set(0.12, rand(6, 14), 0.12);
-  vine.position.set(rand(-7, 7), rand(12, 18), rand(-9, 9));
-  g.add(vine);
-  return g;
-}
 
-/* ---------------------------------------------------------------- BIOME 4 */
-function magmaProp() {
-  const g = new THREE.Group();
-  for (let i = 0; i < 3; i++) {
-    const h = rand(3, 14);
-    const m = new THREE.Mesh(
-      geo('rock', () => new THREE.DodecahedronGeometry(1, 0)),
-      rock(pick([0x2a1a18, 0x3a231d, 0x1d1312]), 0.95)
-    );
-    m.scale.set(rand(1.4, 4), h * 0.35, rand(1.4, 4));
-    m.position.set(rand(-6, 6), h * 0.15, rand(-9, 9));
-    m.rotation.y = rand(0, 6.28);
-    m.castShadow = true;
-    g.add(m);
-  }
-  // lava pool
-  const pool = new THREE.Mesh(
-    geo('plane', () => new THREE.PlaneGeometry(1, 1)),
-    new THREE.MeshBasicMaterial({ color: 0xff5a1f, transparent: true, opacity: 0.9 })
-  );
-  pool.rotation.x = -Math.PI / 2;
-  pool.scale.set(rand(4, 11), rand(4, 11), 1);
-  pool.position.set(rand(-7, 7), 0.06, rand(-9, 9));
-  g.add(pool);
-  // industrial pipe tower
-  if (Math.random() < 0.55) {
-    const pipe = new THREE.Mesh(geo('cyl', () => new THREE.CylinderGeometry(0.5, 0.8, 1, 7)), rock(0x4b3a33, 0.6, 0.6));
-    const ph = rand(10, 26);
-    pipe.scale.set(rand(1.2, 2.6), ph, rand(1.2, 2.6));
-    pipe.position.set(rand(-8, 8), ph * 0.5, rand(-9, 9));
-    pipe.castShadow = true;
-    g.add(pipe);
-    const ring = new THREE.Mesh(geo('torus', () => new THREE.TorusGeometry(1, 0.12, 6, 16)), emissive(0xff7a1f, 2));
-    ring.scale.setScalar(pipe.scale.x * 1.3);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.set(pipe.position.x, ph * 0.85, pipe.position.z);
-    g.add(ring);
-  }
-  return g;
-}
 
-/* ---------------------------------------------------------------- BIOME 5 */
-function iceProp() {
-  const g = new THREE.Group();
-  const iceMat = new THREE.MeshStandardMaterial({
-    color: 0xbfe9ff,
-    emissive: new THREE.Color(0x2b6fa8),
-    emissiveIntensity: 0.35,
-    roughness: 0.12,
-    metalness: 0.05,
-    transparent: true,
-    opacity: 0.85,
-    flatShading: true,
-  });
-  for (let i = 0; i < 3 + ((Math.random() * 2) | 0); i++) {
-    const h = rand(4, 20);
-    const m = new THREE.Mesh(geo('icosa', () => new THREE.IcosahedronGeometry(1, 0)), iceMat);
-    m.scale.set(rand(1, 3.4), h * 0.5, rand(1, 3.4));
-    m.position.set(rand(-7, 7), h * 0.2, rand(-9, 9));
-    m.rotation.set(rand(-0.2, 0.2), rand(0, 6.3), rand(-0.2, 0.2));
-    m.castShadow = true;
-    g.add(m);
-  }
-  // frozen arch
-  if (Math.random() < 0.4) {
-    const arch = new THREE.Mesh(geo('torus2', () => new THREE.TorusGeometry(1, 0.18, 6, 20, Math.PI)), iceMat);
-    arch.scale.setScalar(rand(5, 10));
-    arch.position.set(rand(-9, 9), 0, rand(-9, 9));
-    arch.rotation.y = rand(0, 3.14);
-    g.add(arch);
-  }
-  return g;
-}
 
 export const BIOMES = [
   {
@@ -225,19 +36,21 @@ export const BIOMES = [
     name: 'CRYSTAL CANYON',
     tag: 'Bioluminescent shard fields of Kepler-9c',
     accent: 0x8a5bff,
-    fog: 0x1a0f3a,
-    fogDensity: 0.0072,
-    sky: [0x120a2e, 0x3a1c6b, 0x7b3fa8],
-    stars: 1.0,
-    skyFeature: 'nebula',
-    hemi: [0x6a4bff, 0x160c2e, 1.15],
-    sun: [0xb98bff, 2.5],
+    fog: 0x6b5a9c,
+    fogDensity: 0.0052,
+    // Daylight. The five worlds now alternate bright/dark so the run never
+    // spends more than one biome in the same key.
+    sky: [0x3f63b8, 0x9aa8e0, 0xe4d6f2],
+    stars: 0.0,
+    skyFeature: null,
+    hemi: [0xc8d4ff, 0x6a5a86, 1.15],
+    sun: [0xfff0d8, 2.5],
     sunPos: [-24, 34, -30],
     ground: { style: 'crystal', base: 0x2a1c4d, accent: 0x5b3f9e, glow: 0x9b6bff, repeat: [3, 8], rough: 0.45, metal: 0.25 },
     laneGlow: 0x9b6bff,
-    skyline: { style: 'spires', color: 0x2a1750 },
+    skyline: { style: 'spires', color: 0x6a5f94 },
     prop: crystalProp,
-    particles: { color: 0xb18bff, count: 260, style: 'float', size: 0.28 },
+    particles: { color: 0xf0e4ff, count: 260, style: 'float', size: 0.28 },
     music: 'crystal',
   },
   {
@@ -264,16 +77,18 @@ export const BIOMES = [
     name: 'SPORE JUNGLE',
     tag: 'Living fungal canopy that breathes with you',
     accent: 0x39e6a0,
-    fog: 0x0a2a1e,
-    fogDensity: 0.0098,
-    sky: [0x04160f, 0x0e3a26, 0x2f7a4d],
-    stars: 0.25,
-    hemi: [0x66ffbf, 0x0a2016, 1.1],
-    sun: [0xbfffd9, 2.4],
+    fog: 0x6f9c76,
+    fogDensity: 0.0074,
+    // Daylight filtering down through the canopy.
+    sky: [0x2f74b8, 0x86c0cf, 0xd6e8b4],
+    stars: 0.0,
+    skyFeature: null,
+    hemi: [0xd8f4e8, 0x3a5a3c, 1.1],
+    sun: [0xfff8e0, 2.4],
     sunPos: [18, 44, -34],
     ground: { style: 'jungle', base: 0x1d3a24, accent: 0x3f7a3c, glow: 0x6bffb0, repeat: [3, 8], rough: 0.85, metal: 0.0 },
     laneGlow: 0x6bffb0,
-    skyline: { style: 'trees', color: 0x0a2417 },
+    skyline: { style: 'trees', color: 0x3c6b48 },
     prop: jungleProp,
     particles: { color: 0x9dffd0, count: 340, style: 'float', size: 0.3 },
     music: 'jungle',

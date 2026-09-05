@@ -1,10 +1,10 @@
 {
   "name": "xeno-run",
   "version": "1.0.0",
-  "description": "XENO RUN — a phase-shifting alien endless runner for mobile browsers",
+  "description": "XENO RUN \u2014 a phase-shifting alien endless runner for mobile browsers",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/build-single.mjs",
+    "build": "vite build && node scripts/build-single.mjs && node scripts/publish-docs.mjs",
     "preview": "vite preview --host",
     "test:smoke": "node test/smoke.mjs",
     "serve": "node scripts/serve.mjs"

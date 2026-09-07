@@ -1,54 +1,8 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>البيت الصامت — لعبة ألغاز سينمائية</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand"><span class="brand-mark">✦</span><div><strong>البيت الصامت</strong><small>حكاية نجاة</small></div></div>
-      <div class="chapter">الفصل الأول <span>·</span> غرفة المكتبة</div>
-      <div class="actions"><button class="icon-btn" aria-label="إعدادات">⚙</button><button class="icon-btn" aria-label="مساعدة">؟</button><button class="avatar">م</button></div>
-    </header>
-
-    <section class="game-grid">
-      <aside class="sidebar">
-        <div class="side-title"><span>خريطة المنزل</span><span class="live-dot"></span></div>
-        <div class="house-map">
-          <div class="map-line line-a"></div><div class="map-line line-b"></div>
-          <button class="map-room active"><span class="room-icon">▦</span><span>المكتبة</span><em>أنت هنا</em></button>
-          <button class="map-room locked"><span class="room-icon">⌂</span><span>الممر الشرقي</span><b>⌑</b></button>
-          <button class="map-room locked"><span class="room-icon">♧</span><span>الحديقة الشتوية</span><b>⌑</b></button>
-          <button class="map-room locked"><span class="room-icon">♜</span><span>غرفة الساعات</span><b>⌑</b></button>
-        </div>
-        <div class="progress-block"><div class="progress-label"><span>التقدم</span><strong id="progressText">1 من 4</strong></div><div class="progress"><i id="progressBar"></i></div><p>حل الألغاز لفتح طريقك.</p></div>
-        <div class="sound-card"><span class="sound-icon">♫</span><div><strong>الأجواء</strong><small>موسيقى هادئة · مفعّلة</small></div><button id="soundToggle">ON</button></div>
-      </aside>
-
-      <section class="stage">
-        <div class="scene" id="scene">
-          <div class="scene-overlay"></div>
-          <div class="scene-copy"><span class="eyebrow">الموقع الحالي</span><h1>غرفة المكتبة</h1><p>الساعة 11:47 ليلاً · منذ 02:18:36</p></div>
-          <div class="scene-tip"><span>✧</span><div><strong>همسة غامضة</strong><p>«حين تتوقف الموسيقى، يبدأ الوقت.»</p></div></div>
-          <button class="hotspot clock-hotspot" data-puzzle="clock" aria-label="ساعة قديمة"><span>⌁</span></button>
-          <button class="hotspot painting-hotspot" data-puzzle="painting" aria-label="لوحة غامضة"><span>⌁</span></button>
-          <button class="hotspot desk-hotspot" data-puzzle="desk" aria-label="مكتب"><span>⌁</span></button>
-          <div class="door-label">الباب الرئيسي <span>مقفل</span></div>
-        </div>
-        <div class="scene-footer"><div class="objective"><span class="key-symbol">♢</span><div><small>الهدف الحالي</small><strong>اعثر على مفتاح الخروج</strong></div></div><div class="hint-wrap"><span id="hintCount">3 تلميحات متبقية</span><button class="hint-btn" id="hintBtn">إظهار تلميح <span>✦</span></button></div></div>
-      </section>
-
-      <aside class="inventory-panel"><div class="panel-heading"><h2>الأدوات</h2><span id="itemCount">0 / 6</span></div><div class="inventory" id="inventory"><div class="empty-slot">?</div><div class="empty-slot">?</div><div class="empty-slot">?</div><div class="empty-slot">?</div><div class="empty-slot">?</div><div class="empty-slot">?</div></div><div class="divider"></div><div class="clues-heading"><h2>سجل الأدلة</h2><span>حديثاً</span></div><div class="clue-list" id="clueList"><div class="clue"><span class="clue-mark">◌</span><div><strong>بداية غريبة</strong><p>استيقظت دون أن تتذكر كيف وصلت.</p><time>منذ لحظات</time></div></div><div class="clue muted"><span class="clue-mark">?</span><div><strong>الدقات السبع</strong><p>هناك شيء ما خلف صوت الساعة.</p><time>مقفلة</time></div></div></div><button class="journal-btn" id="journalBtn">فتح دفتر الملاحظات <span>↗</span></button></aside>
-    </section>
-  </main>
-  <div class="toast" id="toast"></div>
-  <div class="modal-backdrop" id="modal"><div class="modal"><button class="close" id="closeModal">×</button><span class="eyebrow" id="modalEyebrow">لغز تفاعلي</span><h2 id="modalTitle">—</h2><p id="modalDescription">—</p><div id="puzzleBody"></div><div class="modal-foot"><span id="modalStatus"></span><button class="primary-btn" id="solveBtn">تأكيد الحل</button></div></div></div>
-  <script src="app.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Silent House — Escape</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head>
+<body><main class="shell">
+<header class="topbar"><div class="brand"><span>✦</span><div><strong>THE SILENT HOUSE</strong><small>A STORY OF SURVIVAL</small></div></div><div class="chapter">CHAPTER I <i>·</i> THE LIBRARY</div><div class="actions"><button class="icon-btn">⚙</button><button class="icon-btn">?</button><button class="avatar">M</button></div></header>
+<section class="game-grid"><aside class="sidebar"><div class="side-title">HOUSE MAP <b></b></div><div class="house-map"><div class="map-line a"></div><div class="map-line b"></div><button class="map-room active">▦ <span>Library</span><em>You are here</em></button><button class="map-room locked">⌂ <span>East Hall</span><strong>⌑</strong></button><button class="map-room locked">♧ <span>Winter Garden</span><strong>⌑</strong></button><button class="map-room locked">♜ <span>Clock Room</span><strong>⌑</strong></button></div><div class="progress-block"><div><span>PROGRESS</span><b id="progressText">1 OF 4</b></div><div class="progress"><i id="progressBar"></i></div><p>Solve the puzzles to find your way out.</p></div><div class="sound-card"><span>♫</span><div><strong>ATMOSPHERE</strong><small>Ambient sound · enabled</small></div><button id="soundToggle">ON</button></div></aside>
+<section class="stage"><div class="scene" id="scene"><div class="scene-overlay"></div><div class="scene-copy"><label>CURRENT LOCATION</label><h1>The Library</h1><p>11:47 PM · 02:18:36 elapsed</p></div><div class="scene-tip"><span>✧</span><div><strong>A MYSTERIOUS WHISPER</strong><p>“When the music stops, time begins.”</p></div></div><button class="hotspot clock-hotspot" data-puzzle="clock">⌁</button><button class="hotspot painting-hotspot" data-puzzle="painting">⌁</button><button class="hotspot desk-hotspot" data-puzzle="desk">⌁</button><div class="door-label">MAIN DOOR <span id="doorState">LOCKED</span></div><div class="intro" id="intro"><div class="intro-inner"><span class="eyebrow">A CINEMATIC ESCAPE EXPERIENCE</span><h2>THE SILENT<br><i>HOUSE</i></h2><p>You wake in a room you do not remember entering.<br>Somewhere beyond the locked door, the house is waiting.</p><button class="start-btn" id="startBtn">BEGIN THE NIGHT <span>→</span></button><small>HEADPHONES RECOMMENDED</small></div></div></div><div class="scene-footer"><div class="objective"><span>♢</span><div><small>CURRENT OBJECTIVE</small><strong>Find the key to the main door</strong></div></div><div class="hint-wrap"><span id="hintCount">3 hints remaining</span><button id="hintBtn">SHOW HINT ✦</button></div></div><div class="inventory-bar"><strong>INVENTORY</strong><div id="inventory"><div class="empty-slot">+</div><div class="empty-slot">+</div><div class="empty-slot">+</div><div class="empty-slot">+</div><div class="empty-slot">+</div><div class="empty-slot">+</div></div><span class="inventory-help">Click an item to inspect</span></div></section>
+<aside class="inventory-panel"><div class="panel-heading"><h2>CLUE JOURNAL</h2><span>RECENT</span></div><div class="clue-list" id="clueList"><div class="clue"><span>◌</span><div><strong>A STRANGE BEGINNING</strong><p>You woke without remembering how you arrived.</p><time>JUST NOW</time></div></div><div class="clue muted"><span>?</span><div><strong>THE SEVEN CHIMES</strong><p>Something hides behind the clock's voice.</p><time>LOCKED</time></div></div></div><button class="journal-btn" id="journalBtn">OPEN JOURNAL ↗</button></aside></section></main>
+<div class="toast" id="toast"></div><div class="modal-backdrop" id="modal"><div class="modal"><button class="close" id="closeModal">×</button><label class="eyebrow">INTERACTIVE PUZZLE</label><h2 id="modalTitle">—</h2><p id="modalDescription">—</p><div id="puzzleBody"></div><div class="modal-foot"><span id="modalStatus"></span><button class="primary-btn" id="solveBtn">CHECK ANSWER</button></div></div></div><script src="app.js"></script></body></html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>صَدَى — لغز الأجراس والموجة</title>
+    <meta name="description" content="صَدَى: لعبة ألغاز موسيقية لكلّ الأعمار. رتّب الأجراس حتى تعزف الموجة اللحن المطلوب." />
+    <meta name="theme-color" content="#0b0e14" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true"></div>
+
+    <div id="app">
+      <!-- ══════════ القائمة ══════════ -->
+      <section class="screen" id="screen-menu">
+        <header class="hero">
+          <div class="mark" aria-hidden="true">
+            <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+            <span class="dot"></span>
+          </div>
+          <h1>صَدَى</h1>
+          <p class="tag">لُغزُ الأجراسِ والمَوجة</p>
+          <p class="lead">
+            ضَعْ الأجراس على الشبكة، ثم أطلق الموجة من الحَجَر. كلُّ جرسٍ يرنّ حين تصله الموجة…
+            <b>ترتيبُ الرنين هو اللحن</b>. المطلوب: أن يُطابق لحنُك اللحنَ المكتوب فوق اللوحة.
+          </p>
+          <div class="hero-actions">
+            <button class="btn primary" id="btn-play">ابدأ اللعب</button>
+            <button class="btn" id="btn-studio-open">الاستوديو</button>
+            <button class="btn ghost" id="btn-help">كيف ألعب؟</button>
+          </div>
+          <div class="progress-line"><span id="progress-text">—</span><button class="btn tiny ghost" id="btn-reset">تصفير التقدّم</button></div>
+        </header>
+        <div id="chapters"></div>
+        <footer class="foot">صُنعت بعناية · تعمل بلا إنترنت · بالماوس واللمس ولوحة المفاتيح</footer>
+      </section>
+
+      <!-- ══════════ اللعب ══════════ -->
+      <section class="screen hidden" id="screen-play">
+        <header class="bar">
+          <button class="icon" id="btn-back" title="رجوع">→</button>
+          <div class="bar-title">
+            <div class="ch-name" id="play-chapter"></div>
+            <div class="lv-name" id="play-name"></div>
+          </div>
+          <div class="bar-side">
+            <div class="stars" id="play-stars">☆☆☆</div>
+            <button class="icon" id="btn-sound" title="الصوت">♪</button>
+            <button class="icon" id="btn-help2" title="مساعدة">؟</button>
+          </div>
+        </header>
+
+        <div class="target-wrap">
+          <div class="target-head">
+            <span class="label">اللحن المطلوب</span>
+            <button class="btn tiny" id="btn-hear-target">استمع</button>
+          </div>
+          <div class="beats" id="target-beats"></div>
+        </div>
+
+        <div class="board-wrap">
+          <canvas id="board" tabindex="0" aria-label="لوحة اللعب"></canvas>
+          <div class="flash" id="flash"></div>
+        </div>
+
+        <div class="tray" id="tray"></div>
+
+        <div class="controls">
+          <button class="btn primary" id="btn-play-wave">▶ عزف</button>
+          <button class="btn" id="btn-undo">تراجع</button>
+          <button class="btn" id="btn-restart">إعادة</button>
+          <button class="btn ghost" id="btn-hint">تلميح</button>
+          <label class="switch"><input type="checkbox" id="chk-auto" checked /><span>عزف تلقائي</span></label>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn tiny" id="btn-prev">المرحلة السابقة</button>
+          <span class="tip" id="play-tip"></span>
+          <button class="btn tiny" id="btn-next">المرحلة التالية</button>
+        </div>
+      </section>
+
+      <!-- ══════════ الاستوديو ══════════ -->
+      <section class="screen hidden" id="screen-studio">
+        <header class="bar">
+          <button class="icon" id="btn-studio-back" title="رجوع">→</button>
+          <div class="bar-title">
+            <div class="ch-name">الاستوديو</div>
+            <div class="lv-name">ابنِ لوحتك واعزفها</div>
+          </div>
+          <div class="bar-side"><button class="icon" id="btn-sound2" title="الصوت">♪</button></div>
+        </header>
+        <div class="board-wrap"><canvas id="studio-board" tabindex="0" aria-label="لوحة الاستوديو"></canvas></div>
+        <div class="palette" id="palette"></div>
+        <div class="controls">
+          <button class="btn primary" id="btn-studio-play">▶ عزف</button>
+          <button class="btn" id="btn-studio-clear">مسح</button>
+          <button class="btn ghost" id="btn-studio-size">تغيير الحجم</button>
+        </div>
+        <p class="tip center">اختر أداة ثم اضغط على الخلايا. البوّابات تُرسم زوجاً: اضغط خليتين.</p>
+      </section>
+    </div>
+
+    <!-- ══════════ نافذة الفوز ══════════ -->
+    <div class="modal hidden" id="win-modal">
+      <div class="card">
+        <div class="win-mark" aria-hidden="true">✦</div>
+        <h2>اللحن اكتمل</h2>
+        <div class="win-stars" id="win-stars">★★★</div>
+        <p class="win-sub" id="win-sub"></p>
+        <div class="win-actions">
+          <button class="btn primary" id="btn-win-next">المرحلة التالية</button>
+          <button class="btn" id="btn-win-again">أعد العزف</button>
+          <button class="btn ghost" id="btn-win-menu">القائمة</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ نافذة الشرح ══════════ -->
+    <div class="modal hidden" id="help-modal">
+      <div class="card wide">
+        <h2>كيف ألعب؟</h2>
+        <ol class="rules">
+          <li><b>الحَجَر</b> (الدوائر المتّحدة) يُطلق موجة تنتشر خليةً واحدة في كلّ خطوة.</li>
+          <li><b>الجرس</b> يرنّ في اللحظة التي تصله فيها الموجة. الأجراس لا تحجب الموجة.</li>
+          <li><b>اللحن المطلوب</b> مكتوب فوق اللوحة: كلّ عمود = نبضة. النغمات في العمود نفسه ترنّ <u>معاً</u>.</li>
+          <li><b>الجدار</b> يحجب الموجة فتدور حوله — وما خلفه يصل متأخّراً أو لا يصل أبداً.</li>
+          <li><b>البوّابة</b> ◦ تنقل الموجة إلى أختها، فتقفز المسافات.</li>
+          <li><b>المشعل</b> يُضاء حين تمرّ به الموجة — علامة على الطريق لا أكثر.</li>
+          <li>اضغط <b>استمع</b> لتسمع اللحن المطلوب، ثم حرّك الأجراس حتى يتطابق لحنك معه.</li>
+        </ol>
+        <div class="keys">
+          <div><kbd>١..٥</kbd> اختيار لون</div>
+          <div><kbd>↑↓←→</kbd> تحريك المؤشّر</div>
+          <div><kbd>Enter</kbd> وضع / رفع جرس</div>
+          <div><kbd>Space</kbd> عزف</div>
+          <div><kbd>Z</kbd> تراجع · <kbd>R</kbd> إعادة · <kbd>H</kbd> تلميح</div>
+        </div>
+        <div class="win-actions"><button class="btn primary" id="btn-help-close">فهمت</button></div>
+      </div>
+    </div>
+
+    <script src="js/sim.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+</html>

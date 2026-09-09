@@ -101,6 +101,38 @@ canvas { touch-action: none; border-radius: 20px; box-shadow: var(--shadow); }
 .row { display: flex; gap: 8px; margin-top: 12px; }
 .row .btn { flex: 1; }
 
+/* صفحة البداية: صف جواهر + الضبط */
+.gem-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 4px; }
+.gem-row .g {
+  width: 34px; height: 34px; border-radius: 12px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.15), inset 0 -6px 0 rgba(0,0,0,.18), inset 0 5px 0 rgba(255,255,255,.35);
+  animation: gbounce 1.6s ease-in-out infinite;
+}
+.g1 { background: var(--pink); } .g2 { background: var(--yellow); border-radius: 50%; animation-delay: .1s; }
+.g3 { background: var(--blue); transform: rotate(45deg); border-radius: 8px; animation-delay: .2s; }
+.g4 { background: var(--green); border-radius: 50% 50% 50% 0; animation-delay: .3s; }
+.g5 { background: var(--purple); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); animation-delay: .4s; }
+@keyframes gbounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.g3 { }
+.gem-row .g3 { animation-name: gspin; }
+@keyframes gspin { 0%,100% { transform: rotate(45deg) translateY(0); } 50% { transform: rotate(45deg) translateY(-7px); } }
+
+.settings {
+  background: #f4f3fb; border-radius: 18px; padding: 12px 14px; margin: 14px 0 2px;
+  display: flex; flex-direction: column; gap: 10px; text-align: start;
+}
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.setlabel { font-weight: 800; color: var(--ink); font-size: 15px; }
+.seg { display: flex; background: #fff; border-radius: 999px; padding: 4px; gap: 4px; box-shadow: inset 0 2px 4px rgba(0,0,0,.06); }
+.seg button {
+  font-family: inherit; font-weight: 700; font-size: 14px; border: none; cursor: pointer;
+  padding: 7px 14px; border-radius: 999px; background: transparent; color: var(--muted);
+  transition: .15s;
+}
+.seg button.on { background: linear-gradient(180deg, #ffe27a, var(--yellow)); color: #6b4d00; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+.btn.mini { padding: 8px 14px; font-size: 14px; border-radius: 12px; }
+.btn.mini.off { background: #eee; color: #999; }
+
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
 .confetti i { position: absolute; top: -12px; width: 9px; height: 9px; animation: fall linear forwards; }
 @keyframes fall { to { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); } }

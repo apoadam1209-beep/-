@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <title>فَرْقِع! — انفجِر الجواهر</title>
-    <meta name="description" content="فَرْقِع! لعبة كرتونية مُدمِنة من ١٠٠ مرحلة: اضغط مجموعات الجواهر المبتسمة لتنفجر بنقاط وكومبو وقنابل." />
+    <title>جُمان! — انفجِر الجواهر</title>
+    <meta name="description" content="جُمان! لعبة كرتونية مُدمِنة من ١٠٠ مرحلة: اضغط مجموعات الجواهر المبتسمة لتنفجر بنقاط وكومبو وقنابل." />
     <meta name="theme-color" content="#201c40" />
     <script>
       if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(function (r) { r.forEach(function (x) { x.unregister(); }); });
@@ -19,7 +19,7 @@
     <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
     <div id="wrap">
       <header class="top">
-        <div class="logo">فَرْقِع<span>!</span></div>
+        <div class="logo">جُمان<span>!</span></div>
         <button class="btn round sound" id="btn-sound" title="الصوت">♪</button>
       </header>
 
@@ -39,10 +39,27 @@
 
     <div class="ov" id="ov-start">
       <div class="panel">
-        <div class="title">فَرْقِع<span>!</span></div>
+        <div class="gem-row" aria-hidden="true">
+          <i class="g g1"></i><i class="g g2"></i><i class="g g3"></i><i class="g g4"></i><i class="g g5"></i>
+        </div>
+        <div class="title">جُمان<span>!</span></div>
         <p class="sub">انفجِر الجواهر المبتسمة · اجمع الكومبو · اصنع القنابل</p>
         <p class="best" id="best-line"></p>
-        <button class="btn big primary" id="btn-start">▶ ابدأ من الأول</button>
+        <div class="settings">
+          <div class="setrow">
+            <span class="setlabel">درجة الصعوبة</span>
+            <div class="seg" id="seg-diff" role="group" aria-label="الصعوبة">
+              <button data-d="easy">سهل</button>
+              <button data-d="normal" class="on">عادي</button>
+              <button data-d="hard">صعب</button>
+            </div>
+          </div>
+          <div class="setrow">
+            <span class="setlabel">الصوت</span>
+            <button class="btn mini" id="sw-sound">♪ الصوت مفعّل</button>
+          </div>
+        </div>
+        <button class="btn big primary" id="btn-start">▶ ابدأ لعبة جديدة</button>
         <button class="btn big" id="btn-continue">أكمل تقدّمك</button>
       </div>
     </div>

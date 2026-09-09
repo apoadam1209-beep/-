@@ -111,11 +111,21 @@
   }
   POP.hasMove = hasMove;
 
+  /* درجات الصعوبة */
+  const DIFFS = {
+    easy: { moves: 5, target: 0.8, label: "سهل" },
+    normal: { moves: 0, target: 1, label: "عادي" },
+    hard: { moves: -4, target: 1.3, label: "صعب" },
+  };
+  POP.DIFFS = DIFFS;
+
   /* إعدادات مرحلة (تدرّج حتى ١٠) */
-  function cfg(lv) {
+  function cfg(lv, diff) {
+    const d = DIFFS[diff] || DIFFS.normal;
     const colors = lv < 6 ? 4 : lv < 30 ? 5 : 6;
-    const moves = lv < 10 ? 20 : lv < 35 ? 18 : lv < 70 ? 16 : 15;
-    const target = 600 + (lv - 1) * 160 + Math.floor((lv - 1) / 10) * 500 + (colors - 4) * 250;
+    let moves = (lv < 10 ? 20 : lv < 35 ? 18 : lv < 70 ? 16 : 15) + d.moves;
+    moves = Math.max(8, moves);
+    const target = Math.round((600 + (lv - 1) * 160 + Math.floor((lv - 1) / 10) * 500 + (colors - 4) * 250) * d.target);
     return { colors, moves, target };
   }
   POP.cfg = cfg;
@@ -132,7 +142,7 @@
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   const COLS = 7, ROWS = 9;
-  const SAVE = "farqia.v2";
+  const SAVE = "juman.v1";
 
   const state = {
     grid: [], colors: 4,
@@ -141,14 +151,16 @@
     particles: [], floats: [], shake: 0,
     mode: "start",
     sound: true,
+    diff: "normal",
+    time: 0,
     best: load(),
     cell: 40, pad: 8, ox: 0, oy: 0,
     cursor: -1,
   };
 
   function load() {
-    try { return Object.assign({ level: 1, best: 0, sound: true }, JSON.parse(localStorage.getItem(SAVE) || "{}")); }
-    catch (e) { return { level: 1, best: 0, sound: true }; }
+    try { return Object.assign({ level: 1, best: 0, sound: true, diff: "normal" }, JSON.parse(localStorage.getItem(SAVE) || "{}")); }
+    catch (e) { return { level: 1, best: 0, sound: true, diff: "normal" }; }
   }
   function save() { try { localStorage.setItem(SAVE, JSON.stringify(state.best)); } catch (e) {} }
 
@@ -208,30 +220,54 @@
     else heartPath(cx, cy, r);
   }
   function face(cx, cy, r) {
-    const ey = cy - r * 0.05;
+    const ey = cy - r * 0.08;
     ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(cx - r * 0.34, ey, r * 0.22, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + r * 0.34, ey, r * 0.22, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.34, ey, r * 0.24, r * 0.28, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + r * 0.34, ey, r * 0.24, r * 0.28, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#252840";
-    ctx.beginPath(); ctx.arc(cx - r * 0.30, ey, r * 0.10, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + r * 0.38, ey, r * 0.10, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx - r * 0.30, ey + r * 0.04, r * 0.11, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.38, ey + r * 0.04, r * 0.11, 0, 7); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(cx - r * 0.34, ey - r * 0.02, r * 0.05, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.34, ey - r * 0.02, r * 0.05, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,110,140,0.4)";
+    ctx.beginPath(); ctx.arc(cx - r * 0.55, cy + r * 0.22, r * 0.14, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.55, cy + r * 0.22, r * 0.14, 0, 7); ctx.fill();
     ctx.strokeStyle = "#252840"; ctx.lineWidth = Math.max(1.4, r * 0.10); ctx.lineCap = "round";
     ctx.beginPath(); ctx.arc(cx, cy + r * 0.22, r * 0.30, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
   }
-  function drawGem(cx, cy, size, idx) {
-    const gem = POP.GEMS[idx]; const r = size * 0.40;
+  function star4(cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const rad = i % 2 === 0 ? r : r * 0.35;
+      const a = (i * Math.PI) / 4;
+      const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+  function drawGem(cx, cy, size, idx, gx, gy) {
+    const gem = POP.GEMS[idx];
+    const ph = (gx || 0) * 0.9 + (gy || 0) * 0.7 + state.time / 460;
+    const r = size * 0.40 * (1 + Math.sin(ph * 1.3) * 0.04);
+    cy += Math.sin(ph) * size * 0.045;
     ctx.save();
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    ctx.shadowColor = "rgba(20,18,43,0.35)"; ctx.shadowOffsetY = size * 0.07; ctx.shadowBlur = 0;
+    // توهّج ملوّن
+    ctx.shadowColor = gem.c; ctx.shadowBlur = size * 0.35;
     const g = ctx.createRadialGradient(cx - r * 0.4, cy - r * 0.5, r * 0.2, cx, cy, r * 1.25);
     g.addColorStop(0, gem.light); g.addColorStop(0.55, gem.c); g.addColorStop(1, gem.dark);
-    ctx.fillStyle = g; ctx.strokeStyle = gem.dark; ctx.lineWidth = r * 0.26;
+    ctx.fillStyle = g;
     gemPath(gem.shape, cx, cy, r);
     ctx.fill();
-    ctx.shadowColor = "transparent";
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+    ctx.strokeStyle = gem.dark; ctx.lineWidth = r * 0.22;
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.beginPath(); ctx.ellipse(cx - r * 0.35, cy - r * 0.45, r * 0.30, r * 0.17, -0.5, 0, Math.PI * 2); ctx.fill();
+    // لمعة علوية + شرارة
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.33, cy - r * 0.45, r * 0.32, r * 0.18, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    star4(cx + r * 0.45, cy - r * 0.28, r * 0.17);
     face(cx, cy, r);
     ctx.restore();
   }
@@ -273,7 +309,7 @@
 
   function startLevel(lv) {
     state.level = Math.min(MAXL, Math.max(1, lv));
-    const c = cfg(state.level);
+    const c = cfg(state.level, state.diff);
     state.colors = c.colors; state.target = c.target; state.moves = c.moves;
     state.score = 0; state.combo = 0;
     state.grid = newGrid(COLS, ROWS, state.colors);
@@ -361,7 +397,7 @@
     jingle(); confetti();
     $("win-stars").textContent = "★".repeat(s) + "☆".repeat(3 - s);
     const final = state.level >= MAXL;
-    $("win-title").textContent = final ? "🏆 أسطورة فَرْقِع!" : "أحسنت!";
+    $("win-title").textContent = final ? "🏆 أسطورة جُمان!" : "أحسنت!";
     $("win-sub").textContent = final ? "أنهيت المائة مرحلة كاملة!" : `نتيجتك ${ar(state.score)} · تبقّى ${ar(state.moves)} حركة`;
     $("btn-next").style.display = final ? "none" : "";
     show("ov-win");
@@ -399,7 +435,7 @@
 
   /* ── الرسم ─ */
   let lastT = performance.now();
-  function frame(t) { const dt = Math.min(0.04, (t - lastT) / 1000); lastT = t; draw(dt); requestAnimationFrame(frame); }
+  function frame(t) { state.time = t; const dt = Math.min(0.04, (t - lastT) / 1000); lastT = t; draw(dt); requestAnimationFrame(frame); }
 
   function draw(dt) {
     const w = canvas.width / dpr, h = canvas.height / dpr;
@@ -422,7 +458,7 @@
       const x = i % COLS, y = (i - x) / COLS;
       const cx = state.ox + x * state.cell + state.cell / 2, cy = state.oy + y * state.cell + state.cell / 2;
       if (v === BOMB) drawBomb(cx, cy, state.cell);
-      else drawGem(cx, cy, state.cell, v - 1);
+      else drawGem(cx, cy, state.cell, v - 1, x, y);
     }
     if (state.cursor >= 0 && state.mode === "play") {
       const x = state.cursor % COLS, y = (state.cursor - x) / COLS;
@@ -480,10 +516,27 @@
   function bestLine() {
     return state.best.best > 0 ? `أفضل نتيجة: ${ar(state.best.best)} · وصلت للمرحلة ${ar(Math.min(MAXL, state.best.level))} من ${ar(MAXL)}` : "لعبة جديدة — بالتوفيق!";
   }
-  function syncSound() { const b = $("btn-sound"); b.textContent = state.sound ? "♪" : "✕"; b.classList.toggle("on", state.sound); }
+  function syncSound() {
+    const b = $("btn-sound"); b.textContent = state.sound ? "♪" : "✕"; b.classList.toggle("on", state.sound);
+    const s = $("sw-sound"); if (s) { s.textContent = state.sound ? "♪ الصوت مفعّل" : "✕ الصوت مكتوم"; s.classList.toggle("off", !state.sound); }
+  }
+  function markSeg() {
+    document.querySelectorAll("#seg-diff button").forEach((b) => b.classList.toggle("on", b.dataset.d === state.diff));
+  }
 
   /* ── إقلاع ── */
   state.sound = state.best.sound !== false;
+  state.diff = DIFFS[state.best.diff] ? state.best.diff : "normal";
+  document.querySelectorAll("#seg-diff button").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.diff = b.dataset.d; state.best.diff = state.diff; save(); markSeg();
+      ac(); tone(620, 0.06);
+    }));
+  $("sw-sound").addEventListener("click", () => {
+    state.sound = !state.sound; state.best.sound = state.sound; save(); syncSound();
+    if (state.sound) { ac(); tone(700, 0.08); }
+  });
+  markSeg();
   syncSound();
   layout();
   state.grid = newGrid(COLS, ROWS, 4);

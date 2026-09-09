@@ -6,6 +6,17 @@
     <title>صَدَى — لغز الأجراس والموجة</title>
     <meta name="description" content="صَدَى: لعبة ألغاز موسيقية لكلّ الأعمار. رتّب الأجراس حتى تعزف الموجة اللحن المطلوب." />
     <meta name="theme-color" content="#0b0e14" />
+    <script>
+      // أزل أي Service Worker أو ذاكرة تخزين مؤقت من نسخة أقدم كي لا تُقدَّم ملفات عتيقة
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (rs) {
+          rs.forEach(function (r) { r.unregister(); });
+        });
+      }
+      if ("caches" in window) {
+        caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

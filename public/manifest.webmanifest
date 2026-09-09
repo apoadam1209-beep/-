@@ -1,0 +1,20 @@
+{
+  "name": "صندوق الأسرار — ألغاز الحكمة",
+  "short_name": "صندوق الأسرار",
+  "description": "لعبة ألغاز عربية مبتكرة: أدر حلقات الصندوق العتيق لتصطفّ الحروف على شعاع القمر — ٢٠ مرحلة و٢٠٠ لغز.",
+  "id": "./",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "theme_color": "#0a0718",
+  "background_color": "#0a0718",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

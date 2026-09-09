@@ -6,7 +6,6 @@ interface Particle {
   color: string; shape: number; life: number; ttl: number;
 }
 
-/** golden geometric ember burst on win */
 export default function Confetti({ active }: { active: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
@@ -21,24 +20,24 @@ export default function Confetti({ active }: { active: boolean }) {
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
 
-    const colors = ["#f0d98c", "#d4af37", "#fff3c9", "#b08d26", "#f7e7b4", "#e3c566"];
+    const colors = ["#5eead4", "#c4b5fd", "#fbbf24", "#fb7185", "#6ee7b7", "#e0f2fe"];
     const parts: Particle[] = [];
     const cx = canvas.width / 2;
-    const cy = canvas.height * 0.4;
-    for (let i = 0; i < 170; i++) {
+    const cy = canvas.height * 0.38;
+    for (let i = 0; i < 160; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = (3 + Math.random() * 11) * dpr;
       parts.push({
         x: cx, y: cy,
         vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp * 0.85 - 6.5 * dpr,
-        size: (2.5 + Math.random() * 6.5) * dpr,
+        vy: Math.sin(a) * sp * 0.85 - 6 * dpr,
+        size: (2.4 + Math.random() * 6) * dpr,
         rot: Math.random() * Math.PI,
         vr: (Math.random() - 0.5) * 0.3,
         color: colors[i % colors.length],
         shape: i % 4,
         life: 0,
-        ttl: 120 + Math.random() * 110,
+        ttl: 110 + Math.random() * 100,
       });
     }
 
@@ -62,20 +61,19 @@ export default function Confetti({ active }: { active: boolean }) {
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.fillStyle = p.color;
-        if (p.shape === 0) ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
-        else if (p.shape === 1) {
-          ctx.beginPath();
-          ctx.arc(0, 0, p.size * 0.38, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (p.shape === 2) {
+        if (p.shape === 0) {
           ctx.beginPath();
           ctx.moveTo(0, -p.size / 2);
           ctx.lineTo(p.size / 2, 0);
           ctx.lineTo(0, p.size / 2);
           ctx.lineTo(-p.size / 2, 0);
           ctx.fill();
+        } else if (p.shape === 1) {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size * 0.38, 0, Math.PI * 2);
+          ctx.fill();
         } else {
-          ctx.fillRect(-p.size, -p.size * 0.12, p.size * 2, p.size * 0.24);
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
         }
         ctx.restore();
       }

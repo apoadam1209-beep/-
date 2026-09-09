@@ -55,6 +55,13 @@ ok(P.hasMove(nm, 3, 2) === false, "لا حركة في شبكx متناوبة");
 const ym = [1, 2, 1, 2, 1, 1];
 ok(P.hasMove(ym, 3, 2) === true, "توجد حركة عند زوج");
 
+
+console.log("— التدرّج حتى ١٠٠ —");
+ok(P.MAXL === 100, "١٠٠ مرحلة");
+ok(P.cfg(1).colors === 4 && P.cfg(1).moves === 20, "المرحلة ١ سهلة");
+ok(P.cfg(50).colors === 6, "المرحلة ٥٠ بستّة ألوان");
+ok(P.cfg(100).target > P.cfg(1).target, "الهدف يتصاعد");
+ok(P.cfg(100).moves <= P.cfg(1).moves, "الحركات تقلّ");
 console.log("─".repeat(40));
 console.log(`النتيجة: ${pass} نجح · ${fail} فشل`);
 process.exit(fail ? 1 : 0);

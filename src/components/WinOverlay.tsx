@@ -54,7 +54,7 @@ export default function WinOverlay({
             >
               <Star
                 className={`h-9 w-9 ${
-                  i < result.stars ? "fill-amber-300 text-amber-300" : "text-cave-600"
+                  i < result.stars ? "fill-amber-300 text-amber-300" : "text-white/20"
                 }`}
               />
             </motion.span>

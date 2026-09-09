@@ -8,12 +8,13 @@ import HowTo from "./components/HowTo";
 import { LEVELS } from "./data/levels";
 import { engine } from "./audio/engine";
 
-const STORAGE_KEY = "crystal-resonance-v1";
+const STORAGE_KEY = "crystal-resonance-v2";
 
 interface Progress {
   unlocked: number;
   stars: number[];
   hints: number;
+  lastPlayed: number;
   musicOn: boolean;
   sfxOn: boolean;
 }
@@ -21,7 +22,8 @@ interface Progress {
 const DEFAULT_PROGRESS: Progress = {
   unlocked: 0,
   stars: Array(LEVELS.length).fill(0),
-  hints: 5,
+  hints: 8,
+  lastPlayed: 0,
   musicOn: true,
   sfxOn: true,
 };
@@ -36,7 +38,8 @@ function loadProgress(): Progress {
       ...p,
       stars: Array.from({ length: LEVELS.length }, (_, i) => p.stars?.[i] ?? 0),
       unlocked: Math.min(p.unlocked ?? 0, LEVELS.length - 1),
-      hints: typeof p.hints === "number" ? p.hints : 5,
+      lastPlayed: Math.min(p.lastPlayed ?? 0, LEVELS.length - 1),
+      hints: typeof p.hints === "number" ? p.hints : 8,
     };
   } catch {
     return DEFAULT_PROGRESS;
@@ -102,8 +105,9 @@ export default function App() {
       return {
         ...p,
         stars,
+        lastPlayed: Math.min(LEVELS.length - 1, index + 1),
         unlocked: Math.min(LEVELS.length - 1, Math.max(p.unlocked, index + 1)),
-        hints: Math.min(9, p.hints + (firstClear ? 1 : 0)),
+        hints: Math.min(12, p.hints + (firstClear ? 1 : 0)),
       };
     });
   }, []);
@@ -149,8 +153,10 @@ export default function App() {
               unlocked={progress.unlocked}
               stars={progress.stars}
               hints={progress.hints}
+              lastPlayed={progress.lastPlayed}
               onPlay={(index) => {
                 engine.ensure();
+                setProgress((p) => ({ ...p, lastPlayed: index }));
                 setScreen({ name: "game", index });
               }}
               onHowTo={() => setHowTo(true)}

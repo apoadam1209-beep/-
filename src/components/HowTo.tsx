@@ -31,6 +31,10 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
             </div>
             بلورة الهالة إذا تحركت تُطلق موجة جديدة من موضعها. البلاطة البنفسجية (+) تضرب في ثماني جهات.
           </li>
+          <li className="crystal-card rounded-2xl p-4">
+            <div className="mb-1 font-bold text-emerald-300">٥. مئتا غرفة</div>
+            عشرة كهوف × عشرين غرفة. النجمة الثالثة = ضربات ≤ المعيار. الجدار فخ: ما انزلق إليه لا يرجع.
+          </li>
         </ol>
         <button type="button" onClick={onClose} className="btn-crystal mt-5 w-full rounded-2xl py-3 text-base font-bold">
           فهمت — إلى الكهف

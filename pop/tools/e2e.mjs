@@ -51,6 +51,18 @@ const ok = (c, l, e = "") => { c ? (pass++, console.log("  ✓ " + l)) : (fail++
   ok(!$("#ov-start").classList.contains("hidden"), "شاشة البداية ظاهرة");
   ok($("#cv").width > 0, "الكانفاس مهيأ");
 
+  // الضبط في صفحة البداية
+  ok(doc.querySelectorAll("#seg-diff button").length === 3, "٣ درجات صعوبة");
+  doc.querySelector('#seg-diff [data-d="hard"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  ok(P._.state.diff === "hard", "اختيار «صعب»");
+  ok(P.cfg(1, "hard").moves === 16 && P.cfg(1, "easy").moves === 25, "تأثير الصعوبة على الحركات");
+  doc.querySelector('#seg-diff [data-d="normal"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  ok(P._.state.diff === "normal", "العودة إلى «عادي»");
+  const snd0 = P._.state.sound;
+  doc.querySelector("#sw-sound").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  ok(P._.state.sound === !snd0, "زر الصوت يقلب الحالة");
+  doc.querySelector("#sw-sound").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
   // ابدأ المرحلة
   $("#btn-start").click();
   await wait(30);

@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "verify:sada": "node sada/tools/verify.mjs",
-    "test:sada": "node sada/tools/e2e.mjs"
+    "test:sada": "node sada/tools/e2e.mjs",
+    "test:pop": "node pop/tools/test.mjs",
+    "e2e:pop": "node pop/tools/e2e.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

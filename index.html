@@ -4,32 +4,32 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <title>فَرْقِع! — انفجِر الجواهر</title>
-    <meta name="description" content="فَرْقِع! لعبة بكسل آرت مُدمِنة: اضغط مجموعات الجواهر المتشابهة لتنفجر بنقاط وكومبو وقنابل." />
-    <meta name="theme-color" content="#14122b" />
+    <meta name="description" content="فَرْقِع! لعبة كرتونية مُدمِنة من ١٠٠ مرحلة: اضغط مجموعات الجواهر المبتسمة لتنفجر بنقاط وكومبو وقنابل." />
+    <meta name="theme-color" content="#201c40" />
     <script>
       if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(function (r) { r.forEach(function (x) { x.unregister(); }); });
       if ("caches" in window) caches.keys().then(function (k) { k.forEach(function (c) { caches.delete(c); }); });
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="stars-bg" aria-hidden="true"></div>
+    <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
     <div id="wrap">
       <header class="top">
         <div class="logo">فَرْقِع<span>!</span></div>
-        <button class="pix sound" id="btn-sound" title="الصوت">♪</button>
+        <button class="btn round sound" id="btn-sound" title="الصوت">♪</button>
       </header>
 
       <div class="hud">
-        <div class="stat"><span class="k">المرحلة</span><span class="v" id="hud-level">١</span></div>
+        <div class="stat"><span class="k">المرحلة</span><span class="v lvl" id="hud-level">١/١٠٠</span></div>
         <div class="stat grow">
           <span class="k">النقاط <i id="hud-score">0</i> / <i id="hud-target">0</i></span>
           <div class="bar"><div id="bar-fill"></div></div>
         </div>
-        <div class="stat"><span class="k">حركات</span><span class="v moves" id="hud-moves">0</span></div>
+        <div class="stat"><span class="k">حركات</span><span class="v moves" id="hud-moves">٠</span></div>
       </div>
 
       <div class="board"><canvas id="cv"></canvas></div>
@@ -37,35 +37,32 @@
       <p class="hint">اضغط على جَوْهَرَين متشابهتين أو أكثر لتفرقعها · مجموعة كبيرة = قنبلة 💣</p>
     </div>
 
-    <!-- البداية -->
     <div class="ov" id="ov-start">
       <div class="panel">
         <div class="title">فَرْقِع<span>!</span></div>
-        <p class="sub">انفجِر الجواهر · اجمع الكومبو · اصنع القنابل</p>
+        <p class="sub">انفجِر الجواهر المبتسمة · اجمع الكومبو · اصنع القنابل</p>
         <p class="best" id="best-line"></p>
-        <button class="pix big primary" id="btn-start">▶ ابدأ من الأول</button>
-        <button class="pix big" id="btn-continue">أكمل تقدّمك</button>
+        <button class="btn big primary" id="btn-start">▶ ابدأ من الأول</button>
+        <button class="btn big" id="btn-continue">أكمل تقدّمك</button>
       </div>
     </div>
 
-    <!-- الفوز -->
     <div class="ov hidden" id="ov-win">
       <div class="panel">
-        <div class="title win">أحسنت!</div>
+        <div class="title win" id="win-title">أحسنت!</div>
         <div class="stars" id="win-stars">★★★</div>
-        <p class="sub">نتيجتك <b id="win-score">0</b> · تبقّى <b id="win-moves">0</b> حركة</p>
-        <button class="pix big primary" id="btn-next">المرحلة التالية ◀</button>
-        <div class="row"><button class="pix" id="btn-again-win">إعادة</button><button class="pix ghost" id="btn-menu">القائمة</button></div>
+        <p class="sub" id="win-sub"></p>
+        <button class="btn big primary" id="btn-next">المرحلة التالية ◀</button>
+        <div class="row"><button class="btn" id="btn-again-win">إعادة</button><button class="btn ghost" id="btn-menu">القائمة</button></div>
       </div>
     </div>
 
-    <!-- الخسارة -->
     <div class="ov hidden" id="ov-lose">
       <div class="panel">
         <div class="title lose">انتهت الحركات!</div>
         <p class="sub">جمعت <b id="lose-score">0</b> من <b id="lose-target">0</b>. حاول مجدداً!</p>
-        <button class="pix big primary" id="btn-retry">🔁 حاول مجدداً</button>
-        <div class="row"><button class="pix ghost" id="btn-menu2">القائمة</button></div>
+        <button class="btn big primary" id="btn-retry">🔁 حاول مجدداً</button>
+        <div class="row"><button class="btn ghost" id="btn-menu2">القائمة</button></div>
       </div>
     </div>
 

@@ -1,195 +1,106 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Music, Volume2, VolumeX } from "lucide-react";
-import Backdrop from "./components/Backdrop";
-import Menu from "./components/Menu";
-import GameScreen, { type StageResult } from "./components/GameScreen";
-import HowTo from "./components/HowTo";
-import { LEVELS } from "./data/levels";
-import { engine } from "./audio/engine";
+import { useEffect, useState } from "react";
+import { HowTo } from "./components/HowTo";
+import { Menu } from "./components/Menu";
+import { Play } from "./components/Play";
+import { Streets } from "./components/Streets";
+import { audio } from "./audio/engine";
+import { STAGES } from "./game/data";
 
-const STORAGE_KEY = "crystal-resonance-v2";
+const KEY = "runaway-ice-v1";
 
-interface Progress {
+export type Progress = {
   unlocked: number;
   stars: number[];
-  hints: number;
-  lastPlayed: number;
-  musicOn: boolean;
-  sfxOn: boolean;
-}
-
-const DEFAULT_PROGRESS: Progress = {
-  unlocked: 0,
-  stars: Array(LEVELS.length).fill(0),
-  hints: 8,
-  lastPlayed: 0,
-  musicOn: true,
-  sfxOn: true,
+  endlessBest: number;
+  muted: boolean;
 };
 
-function loadProgress(): Progress {
+const DEFAULT: Progress = {
+  unlocked: 1,
+  stars: Array(STAGES.length + 1).fill(0),
+  endlessBest: 0,
+  muted: false,
+};
+
+function load(): Progress {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PROGRESS;
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return { ...DEFAULT, stars: [...DEFAULT.stars] };
     const p = JSON.parse(raw) as Partial<Progress>;
     return {
-      ...DEFAULT_PROGRESS,
-      ...p,
-      stars: Array.from({ length: LEVELS.length }, (_, i) => p.stars?.[i] ?? 0),
-      unlocked: Math.min(p.unlocked ?? 0, LEVELS.length - 1),
-      lastPlayed: Math.min(p.lastPlayed ?? 0, LEVELS.length - 1),
-      hints: typeof p.hints === "number" ? p.hints : 8,
+      unlocked: Math.max(1, Number(p.unlocked) || 1),
+      stars: Array(STAGES.length + 1)
+        .fill(0)
+        .map((_, i) => p.stars?.[i] ?? 0),
+      endlessBest: Number(p.endlessBest) || 0,
+      muted: !!p.muted,
     };
   } catch {
-    return DEFAULT_PROGRESS;
+    return { ...DEFAULT, stars: [...DEFAULT.stars] };
   }
 }
 
-type Screen = { name: "menu" } | { name: "game"; index: number };
+type Screen = "menu" | "howto" | "streets" | "play";
 
 export default function App() {
-  const [progress, setProgress] = useState<Progress>(loadProgress);
-  const [screen, setScreen] = useState<Screen>({ name: "menu" });
-  const [howTo, setHowTo] = useState(false);
-  const progressRef = useRef(progress);
-  progressRef.current = progress;
+  const [progress, setProgressState] = useState<Progress>(load);
+  const [screen, setScreen] = useState<Screen>("menu");
+  const [play, setPlay] = useState({ stageId: 1, endless: false });
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    } catch {
-      /* ignore */
-    }
-  }, [progress]);
+    audio.setMuted(progress.muted);
+  }, [progress.muted]);
 
-  useEffect(() => {
-    const init = () => {
-      engine.ensure();
-      engine.setMusic(progressRef.current.musicOn);
-      engine.setSfx(progressRef.current.sfxOn);
-      if (progressRef.current.musicOn) engine.startAmbient();
-    };
-    window.addEventListener("pointerdown", init, { once: true });
-    window.addEventListener("keydown", init, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", init);
-      window.removeEventListener("keydown", init);
-    };
-  }, []);
-
-  const toggleMusic = useCallback(() => {
-    setProgress((p) => {
-      const musicOn = !p.musicOn;
-      engine.ensure();
-      engine.setMusic(musicOn);
-      return { ...p, musicOn };
+  function setProgress(p: Progress | ((prev: Progress) => Progress)) {
+    setProgressState((prev) => {
+      const next = typeof p === "function" ? p(prev) : p;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
     });
-  }, []);
+  }
 
-  const toggleSfx = useCallback(() => {
-    setProgress((p) => {
-      const sfxOn = !p.sfxOn;
-      engine.ensure();
-      engine.setSfx(sfxOn);
-      if (sfxOn) engine.uiTap();
-      return { ...p, sfxOn };
-    });
-  }, []);
+  function start(stageId: number, endless = false) {
+    void audio.ensure();
+    setPlay({ stageId, endless });
+    setScreen("play");
+  }
 
-  const handleWin = useCallback((index: number, r: StageResult) => {
-    setProgress((p) => {
-      const stars = [...p.stars];
-      const firstClear = (stars[index] ?? 0) === 0;
-      stars[index] = Math.max(stars[index] ?? 0, r.stars);
-      return {
-        ...p,
-        stars,
-        lastPlayed: Math.min(LEVELS.length - 1, index + 1),
-        unlocked: Math.min(LEVELS.length - 1, Math.max(p.unlocked, index + 1)),
-        hints: Math.min(12, p.hints + (firstClear ? 1 : 0)),
-      };
-    });
-  }, []);
-
-  const spendHint = useCallback(() => {
-    setProgress((p) => ({ ...p, hints: Math.max(0, p.hints - 1) }));
-  }, []);
-
+  if (screen === "play") {
+    return (
+      <Play
+        key={`${play.endless ? "e" : "s"}-${play.stageId}`}
+        stageId={play.stageId}
+        endless={play.endless}
+        progress={progress}
+        setProgress={setProgress}
+        onMenu={() => setScreen("menu")}
+        onNext={(id) => start(id)}
+      />
+    );
+  }
+  if (screen === "howto") {
+    return <HowTo onBack={() => setScreen("menu")} onPlay={() => start(1)} />;
+  }
+  if (screen === "streets") {
+    return (
+      <Streets
+        progress={progress}
+        onBack={() => setScreen("menu")}
+        onPlay={(id) => start(id)}
+      />
+    );
+  }
   return (
-    <div className="relative min-h-svh">
-      <Backdrop />
-
-      <div className="fixed left-3 top-3 z-50 flex gap-2">
-        <button
-          type="button"
-          onClick={toggleMusic}
-          title={progress.musicOn ? "كتم الموسيقى" : "تشغيل الموسيقى"}
-          className="btn-ghost relative flex h-10 w-10 items-center justify-center rounded-xl"
-        >
-          <Music className={`h-4 w-4 ${progress.musicOn ? "" : "opacity-40"}`} />
-          {!progress.musicOn && <span className="absolute h-px w-6 rotate-45 bg-cyan-300" />}
-        </button>
-        <button
-          type="button"
-          onClick={toggleSfx}
-          title={progress.sfxOn ? "كتم المؤثرات" : "تشغيل المؤثرات"}
-          className="btn-ghost flex h-10 w-10 items-center justify-center rounded-xl"
-        >
-          {progress.sfxOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 opacity-40" />}
-        </button>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {screen.name === "menu" ? (
-          <motion.div
-            key="menu"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Menu
-              unlocked={progress.unlocked}
-              stars={progress.stars}
-              hints={progress.hints}
-              lastPlayed={progress.lastPlayed}
-              onPlay={(index) => {
-                engine.ensure();
-                setProgress((p) => ({ ...p, lastPlayed: index }));
-                setScreen({ name: "game", index });
-              }}
-              onHowTo={() => setHowTo(true)}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key={`game-${screen.index}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.4 }}
-          >
-            <GameScreen
-              stage={LEVELS[screen.index]}
-              stageIndex={screen.index}
-              totalStages={LEVELS.length}
-              hintsLeft={progress.hints}
-              onSpendHint={spendHint}
-              onStageWin={(r) => handleWin(screen.index, r)}
-              onExit={() => setScreen({ name: "menu" })}
-              onNext={() =>
-                setScreen(
-                  screen.index < LEVELS.length - 1
-                    ? { name: "game", index: screen.index + 1 }
-                    : { name: "menu" },
-                )
-              }
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {howTo && <HowTo onClose={() => setHowTo(false)} />}
-    </div>
+    <Menu
+      progress={progress}
+      onPlay={(id) => start(id)}
+      onEndless={() => start(1, true)}
+      onHowTo={() => setScreen("howto")}
+      onStreets={() => setScreen("streets")}
+    />
   );
 }

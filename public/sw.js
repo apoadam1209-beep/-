@@ -1,5 +1,4 @@
-/* رنين البلّور — offline app shell */
-const VERSION = "resonance-v1";
+const VERSION = "runaway-ice-v1";
 const SHELL_CACHE = `${VERSION}-shell`;
 const FONT_CACHE = `${VERSION}-fonts`;
 

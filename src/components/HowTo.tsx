@@ -1,42 +1,40 @@
 type Props = { onBack: () => void; onPlay: () => void };
 
 export function HowTo({ onBack, onPlay }: Props) {
-  const cards = [
+  const items = [
     {
-      t: "اسحب المخروط",
-      d: "إصبعك = رجليك. المخروط بيجري على الإسفلت ورا الآيس كريم.",
-      e: "🏃",
+      t: "بدّل فانوسين",
+      d: "اختار فانوس، وبعدين اللي جنبه. لو بقوا ثلاثة نفس اللون في صف أو عمود: يشتعلوا.",
     },
     {
-      t: "اضغط مدّ لسانك",
-      d: "اضغط مع السحب. اللسان بيتطوّل ناحية الكرة. لحسة في الوقت الصح تثبّتها.",
-      e: "😛",
+      t: "النور يأكل العتمة",
+      d: "التطابق بيضيّع الدخان حوالين الفوانيس. طابق جنب العتمة، مش في الفاضي.",
     },
     {
-      t: "قبل ما تذوب",
-      d: "الشمس بتأكلها. الظل والتكييف ينقذوا. الكلب والولد والبالوعة والميكروباص… كلها جعانة.",
-      e: "☀️",
+      t: "قبل الفجر",
+      d: "كل ليلة بعدد حركات. الأربعة تعمل صفاً من نور، والخمسة قمراً يمسح لوناً كاملاً.",
+    },
+    {
+      t: "القطة",
+      d: "من نص اللعب قطة تقعد على فانوس وما ينفعش تبدّله. بتتنقل بعد كل حركة.",
     },
   ];
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col px-5 py-8">
-      <button className="btn-ghost-ice self-start" onClick={onBack}>
+    <div className="page">
+      <button className="chip" onClick={onBack}>
         رجوع
       </button>
-      <h2 className="font-display mt-6 text-3xl font-bold text-[#5b2a12]">إزاي تلعب</h2>
-      <div className="mt-6 flex flex-col gap-4">
-        {cards.map((c) => (
-          <div key={c.t} className="ice-card flex gap-4 p-4 text-right">
-            <div className="text-3xl">{c.e}</div>
-            <div>
-              <h3 className="font-display text-xl font-bold text-[#5b2a12]">{c.t}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-[#6b4a32]">{c.d}</p>
-            </div>
-          </div>
+      <h1>إزاي تلعب</h1>
+      <div className="cards">
+        {items.map((x) => (
+          <article key={x.t} className="ice-card">
+            <h3>{x.t}</h3>
+            <p>{x.d}</p>
+          </article>
         ))}
       </div>
-      <button className="btn-lick mt-8" onClick={onPlay}>
-        يلا نلحس
+      <button className="btn-main" onClick={onPlay}>
+        يلا ننوّر
       </button>
     </div>
   );

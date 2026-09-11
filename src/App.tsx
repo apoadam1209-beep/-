@@ -1,51 +1,47 @@
 import { useEffect, useState } from "react";
+import { audio } from "./audio/engine";
 import { HowTo } from "./components/HowTo";
 import { Menu } from "./components/Menu";
+import { Nights } from "./components/Nights";
 import { Play } from "./components/Play";
-import { Streets } from "./components/Streets";
-import { audio } from "./audio/engine";
-import { STAGES } from "./game/data";
+import { LEVELS } from "./game/levels";
 
-const KEY = "runaway-ice-v1";
+const KEY = "ramadan-nur-v1";
 
 export type Progress = {
   unlocked: number;
   stars: number[];
-  endlessBest: number;
   muted: boolean;
 };
 
-const DEFAULT: Progress = {
+const empty = (): Progress => ({
   unlocked: 1,
-  stars: Array(STAGES.length + 1).fill(0),
-  endlessBest: 0,
+  stars: Array(LEVELS.length + 1).fill(0),
   muted: false,
-};
+});
 
 function load(): Progress {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, stars: [...DEFAULT.stars] };
+    if (!raw) return empty();
     const p = JSON.parse(raw) as Partial<Progress>;
+    const base = empty();
     return {
       unlocked: Math.max(1, Number(p.unlocked) || 1),
-      stars: Array(STAGES.length + 1)
-        .fill(0)
-        .map((_, i) => p.stars?.[i] ?? 0),
-      endlessBest: Number(p.endlessBest) || 0,
+      stars: base.stars.map((_, i) => p.stars?.[i] ?? 0),
       muted: !!p.muted,
     };
   } catch {
-    return { ...DEFAULT, stars: [...DEFAULT.stars] };
+    return empty();
   }
 }
 
-type Screen = "menu" | "howto" | "streets" | "play";
+type Screen = "menu" | "howto" | "nights" | "play";
 
 export default function App() {
   const [progress, setProgressState] = useState<Progress>(load);
   const [screen, setScreen] = useState<Screen>("menu");
-  const [play, setPlay] = useState({ stageId: 1, endless: false });
+  const [levelId, setLevelId] = useState(1);
 
   useEffect(() => {
     audio.setMuted(progress.muted);
@@ -63,20 +59,30 @@ export default function App() {
     });
   }
 
-  function start(stageId: number, endless = false) {
-    void audio.ensure();
-    setPlay({ stageId, endless });
+  function start(id: number) {
+    void audio.ensure().then(() => audio.startNight());
+    setLevelId(id);
     setScreen("play");
   }
 
   if (screen === "play") {
     return (
       <Play
-        key={`${play.endless ? "e" : "s"}-${play.stageId}`}
-        stageId={play.stageId}
-        endless={play.endless}
-        progress={progress}
-        setProgress={setProgress}
+        key={levelId}
+        levelId={levelId}
+        muted={progress.muted}
+        onMuted={(v) => setProgress((p) => ({ ...p, muted: v }))}
+        onWin={(id, stars) =>
+          setProgress((p) => {
+            const next = [...p.stars];
+            next[id] = Math.max(next[id] ?? 0, stars);
+            return {
+              ...p,
+              stars: next,
+              unlocked: Math.max(p.unlocked, Math.min(LEVELS.length, id + 1)),
+            };
+          })
+        }
         onMenu={() => setScreen("menu")}
         onNext={(id) => start(id)}
       />
@@ -85,22 +91,23 @@ export default function App() {
   if (screen === "howto") {
     return <HowTo onBack={() => setScreen("menu")} onPlay={() => start(1)} />;
   }
-  if (screen === "streets") {
+  if (screen === "nights") {
     return (
-      <Streets
-        progress={progress}
+      <Nights
+        unlocked={progress.unlocked}
+        stars={progress.stars}
         onBack={() => setScreen("menu")}
-        onPlay={(id) => start(id)}
+        onPlay={start}
       />
     );
   }
   return (
     <Menu
-      progress={progress}
-      onPlay={(id) => start(id)}
-      onEndless={() => start(1, true)}
+      unlocked={progress.unlocked}
+      stars={progress.stars}
+      onPlay={start}
+      onNights={() => setScreen("nights")}
       onHowTo={() => setScreen("howto")}
-      onStreets={() => setScreen("streets")}
     />
   );
 }

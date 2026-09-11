@@ -50,5 +50,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`الآيس كريم الهارب listening on 0.0.0.0:${port}`);
+  console.log(`ضوء رمضان listening on 0.0.0.0:${port}`);
 });

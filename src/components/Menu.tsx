@@ -1,15 +1,32 @@
 import { HARAS, LEVELS, nightOf } from "../game/levels";
+import type { Difficulty } from "../game/types";
 import { Install } from "./Install";
 
 type Props = {
   unlocked: number;
   stars: number[];
+  difficulty: Difficulty;
+  onDifficulty: (d: Difficulty) => void;
   onPlay: (id: number) => void;
   onNights: () => void;
   onHowTo: () => void;
 };
 
-export function Menu({ unlocked, stars, onPlay, onNights, onHowTo }: Props) {
+const DIFFS: { id: Difficulty; label: string }[] = [
+  { id: "easy", label: "سهل" },
+  { id: "mid", label: "وسط" },
+  { id: "hard", label: "صعب" },
+];
+
+export function Menu({
+  unlocked,
+  stars,
+  difficulty,
+  onDifficulty,
+  onPlay,
+  onNights,
+  onHowTo,
+}: Props) {
   const continueId = Math.min(Math.max(1, unlocked), LEVELS.length);
   const totalStars = stars.reduce((a, b) => a + b, 0);
   const night = nightOf(continueId);
@@ -39,6 +56,18 @@ export function Menu({ unlocked, stars, onPlay, onNights, onHowTo }: Props) {
         <p className="kicker">٣٠ × ١٠</p>
         <h1>ضوء رمضان</h1>
         <div className="star-total">★ {totalStars}</div>
+        <div className="diff">
+          {DIFFS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={difficulty === d.id ? "diff-btn is-on" : "diff-btn"}
+              onClick={() => onDifficulty(d.id)}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
         <div className="col-btns">
           <button className="btn-main" onClick={() => onPlay(continueId)}>
             {unlocked > 1 ? "كمّل" : "ابدأ"}

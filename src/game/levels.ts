@@ -1,6 +1,4 @@
-import type { Dir, LevelDef, Night, NightId } from "./types";
-
-const WINDS: Dir[] = ["left", "right", "up", "down"];
+import type { LevelDef, Night, NightId } from "./types";
 
 export const DAYS = 30;
 export const HARAS = 10;
@@ -169,7 +167,6 @@ function buildLevels(): LevelDef[] {
         colorCount,
         moves,
         dark,
-        wind: day <= 2 ? null : WINDS[(day + hara) % 4]!,
       });
     }
   }

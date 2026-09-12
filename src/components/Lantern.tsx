@@ -12,12 +12,10 @@ export function LanternView({
   cell,
   selected,
   hint,
-  wind,
 }: {
   cell: Cell;
   selected?: boolean;
   hint?: boolean;
-  wind?: string | null;
 }) {
   const meta = COLOR_META[cell.color];
   const delay = `${(cell.id % 7) * 0.31}s`;
@@ -28,8 +26,7 @@ export function LanternView({
         `c-${cell.color}`,
         selected && "is-selected",
         hint && "is-hint",
-        cell.special !== "none" && "is-special",
-        wind && `lean-${wind}`
+        cell.special !== "none" && "is-special"
       )}
       style={{
         ["--glow" as string]: meta.hex,

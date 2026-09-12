@@ -1,4 +1,4 @@
-import type { Cell, ColorId, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
+import type { Cell, ColorId, Difficulty, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
 
 export const ALL_COLORS: ColorId[] = ["ruby", "emerald", "gold", "aqua", "violet"];
 
@@ -155,13 +155,6 @@ function clonePos(p: Pos): Pos {
   return { r: p.r, c: p.c };
 }
 
-export function oppDir(dir: Dir): Dir {
-  if (dir === "up") return "down";
-  if (dir === "down") return "up";
-  if (dir === "left") return "right";
-  return "left";
-}
-
 export function stepDir(from: Pos, dir: Dir, n = 1): Pos {
   if (dir === "up") return { r: from.r - n, c: from.c };
   if (dir === "down") return { r: from.r + n, c: from.c };
@@ -169,38 +162,24 @@ export function stepDir(from: Pos, dir: Dir, n = 1): Pos {
   return { r: from.r, c: from.c + n };
 }
 
-export function swipeGoal(
-  g: Game,
-  from: Pos,
-  dir: Dir
-): { to: Pos; steps: number; against: boolean } | null {
-  if (g.wind && dir === oppDir(g.wind)) {
-    const to = stepDir(from, dir, 1);
-    if (!inb(g, to.r, to.c)) return null;
-    return { to, steps: 1, against: true };
-  }
-  let steps = g.wind === dir ? 2 : 1;
-  let to = stepDir(from, dir, steps);
-  if (!inb(g, to.r, to.c) && steps === 2) {
-    steps = 1;
-    to = stepDir(from, dir, 1);
-  }
+export function swipeGoal(g: Game, from: Pos, dir: Dir): Pos | null {
+  const to = stepDir(from, dir, 1);
   if (!inb(g, to.r, to.c)) return null;
-  return { to, steps, against: false };
+  return to;
 }
 
 export function findHint(g: Game): [Pos, Pos] | null {
   const n = g.size;
-  const dirs: Dir[] = ["up", "down", "left", "right"];
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
       const a = { r, c };
-      for (const dir of dirs) {
-        const goal = swipeGoal(g, a, dir);
-        if (!goal || goal.against) continue;
-        if (!inb(g, goal.to.r, goal.to.c)) continue;
-        if (isCat(g, a) || isCat(g, goal.to)) continue;
-        if (canSwap(g, a, goal.to, dir)) return [a, goal.to];
+      for (const b of [
+        { r, c: c + 1 },
+        { r: r + 1, c },
+      ]) {
+        if (!inb(g, b.r, b.c)) continue;
+        if (isCat(g, a) || isCat(g, b)) continue;
+        if (canSwap(g, a, b)) return [a, b];
       }
     }
   }
@@ -437,21 +416,12 @@ export function wouldMatch(g: Game, a: Pos, b: Pos) {
   return ok;
 }
 
-export function canSwap(g: Game, a: Pos, b: Pos, dir?: Dir) {
+export function canSwap(g: Game, a: Pos, b: Pos) {
   if (g.status !== "play") return false;
+  if (!adjacent(a, b)) return false;
   if (!inb(g, a.r, a.c) || !inb(g, b.r, b.c)) return false;
   if (!g.grid[a.r]![a.c] || !g.grid[b.r]![b.c]) return false;
   if (isCat(g, a) || isCat(g, b)) return false;
-  if (dir && g.wind && dir === oppDir(g.wind)) return false;
-  const manhattan = Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
-  const straight = a.r === b.r || a.c === b.c;
-  let distOk = manhattan === 1;
-  if (manhattan === 2 && straight && g.wind) {
-    const inferred: Dir =
-      a.r === b.r ? (b.c > a.c ? "right" : "left") : b.r > a.r ? "down" : "up";
-    distOk = (dir ?? inferred) === g.wind;
-  }
-  if (!distOk) return false;
   return wouldMatch(g, a, b) || specialSwap(g, a, b);
 }
 
@@ -533,10 +503,32 @@ export function ensureMoves(g: Game, rng: () => number) {
   g.hint = null;
 }
 
-export function createGame(level: LevelDef): { game: Game; rng: () => number } {
-  const rng = mulberry(level.id * 9176 + 13);
-  const colors = ALL_COLORS.slice(0, level.colorCount);
-  const dark = parseDark(level);
+export function createGame(
+  level: LevelDef,
+  difficulty: Difficulty = "mid"
+): { game: Game; rng: () => number } {
+  const rng = mulberry(level.id * 9176 + 13 + (difficulty === "hard" ? 91 : difficulty === "easy" ? 17 : 0));
+  let colorCount = level.colorCount;
+  let moves = level.moves;
+  let dark = parseDark(level);
+  let cat: Pos | null =
+    level.day >= 10 && level.hara >= 4 ? { r: 0, c: Math.floor(level.size / 2) } : null;
+
+  if (difficulty === "easy") {
+    colorCount = Math.min(4, colorCount);
+    moves = Math.min(40, Math.floor(moves * 1.45) + 6);
+    dark = dark.map((row) => row.map((v) => (v > 0 ? 1 : 0)));
+    cat = null;
+  } else if (difficulty === "hard") {
+    colorCount = 5;
+    moves = Math.max(10, Math.floor(moves * 0.7));
+    dark = dark.map((row) =>
+      row.map((v) => (v > 0 && rng() < 0.35 ? 2 : v === 0 && rng() < 0.08 ? 1 : v))
+    );
+    if (level.day >= 3) cat = { r: 0, c: Math.floor(level.size / 2) };
+  }
+
+  const colors = ALL_COLORS.slice(0, colorCount);
   const grid = fillWithoutMatch(level.size, colors, rng);
   const game: Game = {
     level,
@@ -546,9 +538,9 @@ export function createGame(level: LevelDef): { game: Game; rng: () => number } {
     dark,
     ghost: Array.from({ length: level.size }, () => Array<ColorId | null>(level.size).fill(null)),
     ghostAge: Array.from({ length: level.size }, () => Array<number>(level.size).fill(0)),
-    wind: level.wind,
-    moves: level.moves,
-    maxMoves: level.moves,
+    difficulty,
+    moves,
+    maxMoves: moves,
     score: 0,
     combo: 1,
     selected: null,
@@ -557,7 +549,7 @@ export function createGame(level: LevelDef): { game: Game; rng: () => number } {
     stars: 0,
     need: needOf(dark),
     lit: 0,
-    cat: level.day >= 10 && level.hara >= 4 ? { r: 0, c: Math.floor(level.size / 2) } : null,
+    cat,
   };
   ensureMoves(game, rng);
   return { game, rng };

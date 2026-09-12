@@ -6,7 +6,6 @@ export function HowTo({ onBack, onPlay }: Props) {
     { t: "▣", d: "الإطار الذهبي" },
     { t: "٤", d: "ديناميت" },
     { t: "٥", d: "مدفع" },
-    { t: "〰", d: "الريح" },
     { t: "◌", d: "الظل" },
   ];
   return (

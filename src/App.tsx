@@ -5,19 +5,22 @@ import { Menu } from "./components/Menu";
 import { Nights } from "./components/Nights";
 import { Play } from "./components/Play";
 import { LEVELS } from "./game/levels";
+import type { Difficulty } from "./game/types";
 
-const KEY = "ramadan-nur-v2";
+const KEY = "ramadan-nur-v3";
 
 export type Progress = {
   unlocked: number;
   stars: number[];
   muted: boolean;
+  difficulty: Difficulty;
 };
 
 const empty = (): Progress => ({
   unlocked: 1,
   stars: Array(LEVELS.length + 1).fill(0),
   muted: false,
+  difficulty: "mid",
 });
 
 function load(): Progress {
@@ -30,6 +33,7 @@ function load(): Progress {
       unlocked: Math.max(1, Number(p.unlocked) || 1),
       stars: base.stars.map((_, i) => p.stars?.[i] ?? 0),
       muted: !!p.muted,
+      difficulty: p.difficulty === "easy" || p.difficulty === "hard" ? p.difficulty : "mid",
     };
   } catch {
     return empty();
@@ -68,10 +72,11 @@ export default function App() {
   if (screen === "play") {
     return (
       <Play
-        key={levelId}
+        key={`${levelId}-${progress.difficulty}`}
         levelId={levelId}
         muted={progress.muted}
         stars={progress.stars}
+        difficulty={progress.difficulty}
         onMuted={(v) => setProgress((p) => ({ ...p, muted: v }))}
         onWin={(id, stars) =>
           setProgress((p) => {
@@ -107,6 +112,8 @@ export default function App() {
     <Menu
       unlocked={progress.unlocked}
       stars={progress.stars}
+      difficulty={progress.difficulty}
+      onDifficulty={(d) => setProgress((p) => ({ ...p, difficulty: d }))}
       onPlay={start}
       onNights={() => setScreen("nights")}
       onHowTo={() => setScreen("howto")}

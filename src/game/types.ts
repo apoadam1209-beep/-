@@ -3,6 +3,7 @@ export type Special = "none" | "dynamite" | "cannon" | "burst";
 export type NightId = "alley" | "square" | "roof" | "dawn";
 export type Status = "play" | "won" | "lost";
 export type Dir = "up" | "down" | "left" | "right";
+export type Difficulty = "easy" | "mid" | "hard";
 export type Pos = { r: number; c: number };
 
 export type SwapFx = {
@@ -10,7 +11,6 @@ export type SwapFx = {
   b: Pos;
   dir: Dir;
   mode: "swap" | "bounce";
-  steps: number;
 };
 
 export type DropFx = { id: number; dist: number };
@@ -41,7 +41,6 @@ export type LevelDef = {
   colorCount: number;
   moves: number;
   dark: string[];
-  wind: Dir | null;
 };
 
 export type Game = {
@@ -52,7 +51,7 @@ export type Game = {
   dark: number[][];
   ghost: (ColorId | null)[][];
   ghostAge: number[][];
-  wind: Dir | null;
+  difficulty: Difficulty;
   moves: number;
   maxMoves: number;
   score: number;

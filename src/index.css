@@ -70,7 +70,28 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   text-shadow: 0 0 24px rgba(245, 197, 66, 0.35);
 }
 .lead, .panel p, .ice-card p { color: #d9c6a0; line-height: 1.7; }
-.star-total { color: #f5c542; margin: 0.6rem 0 1.2rem; font-weight: 800; }
+.star-total { color: #f5c542; margin: 0.6rem 0 0.8rem; font-weight: 800; }
+.diff {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.diff-btn {
+  border: 1px solid rgba(245, 197, 66, 0.28);
+  background: rgba(255,255,255,0.05);
+  color: #d9c6a0;
+  border-radius: 999px;
+  padding: 0.45rem 0.2rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+}
+.diff-btn.is-on {
+  background: linear-gradient(180deg, #ffe08a, #e09a2a);
+  color: #2a1608;
+  border-color: #f5c542;
+}
 
 .col-btns { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.4rem; }
 
@@ -284,26 +305,20 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   place-items: center;
   pointer-events: none;
   will-change: transform;
-  transition: transform 0.12s cubic-bezier(.2,.85,.2,1);
+  transition: none;
 }
 .piece.is-drag {
   transition: none;
   filter: drop-shadow(0 16px 14px rgba(0,0,0,0.55));
 }
-.piece.is-swap {
-  animation: swapGo 0.17s cubic-bezier(.18,.9,.22,1) forwards;
-}
-.piece.is-bounce {
-  animation: swapBounce 0.2s cubic-bezier(.18,.9,.22,1) forwards;
-}
 .piece.is-pop {
-  animation: popOut 0.13s ease-in forwards;
+  animation: popOut 0.05s ease-in forwards;
 }
 .piece.is-drop {
-  animation: dropIn 0.17s cubic-bezier(.2,.9,.22,1) both;
+  animation: dropIn 0.055s linear both;
 }
 .piece.is-spawn {
-  animation: spawnIn 0.11s cubic-bezier(.2,.85,.2,1) both;
+  animation: spawnIn 0.035s linear both;
 }
 .piece.is-swap .lantern,
 .piece.is-bounce .lantern,
@@ -367,7 +382,7 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   pointer-events: none;
   z-index: 7;
   mix-blend-mode: screen;
-  animation: firePop 0.45s ease-out forwards;
+  animation: firePop 0.18s ease-out forwards;
 }
 .lantern.is-selected {
   animation: none;
@@ -605,6 +620,10 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
 @keyframes spawnIn {
   0% { transform: translateY(-70%) scale(0.55); opacity: 0; }
   100% { transform: none; opacity: 1; }
+}
+@keyframes firePop {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.08); opacity: 0; }
 }
 
 @media (min-width: 720px) {

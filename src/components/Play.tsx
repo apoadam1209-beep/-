@@ -18,20 +18,19 @@ import {
   tryActivateSpecial,
 } from "../game/engine";
 import { HARAS, LEVELS, nightOf } from "../game/levels";
-import type { Dir, DropFx, Game, Pos, SwapFx } from "../game/types";
+import type { Difficulty, Dir, DropFx, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const SWAP_MS = 170;
-const BOUNCE_MS = 200;
-const POP_MS = 130;
-const DROP_MS = 170;
-const SPAWN_MS = 110;
+const POP_MS = 45;
+const DROP_MS = 55;
+const SPAWN_MS = 35;
 
 type Props = {
   levelId: number;
   muted: boolean;
   stars: number[];
+  difficulty: Difficulty;
   onMuted: (v: boolean) => void;
   onWin: (id: number, stars: number) => void;
   onMenu: () => void;
@@ -43,18 +42,17 @@ export function Play({
   levelId,
   muted,
   stars,
+  difficulty,
   onMuted,
   onWin,
   onMenu,
   onNext,
   onNights,
 }: Props) {
-  const pack = useRef(createGame(LEVELS[levelId - 1]!));
+  const pack = useRef(createGame(LEVELS[levelId - 1]!, difficulty));
   const [game, setGame] = useState<Game>(pack.current.game);
   const [burst, setBurst] = useState<Pos[]>([]);
   const [fire, setFire] = useState<Pos[]>([]);
-  const [holding, setHolding] = useState<Pos | null>(null);
-  const [swap, setSwap] = useState<SwapFx | null>(null);
   const [drops, setDrops] = useState<DropFx[]>([]);
   const [spawns, setSpawns] = useState<number[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -64,22 +62,24 @@ export function Play({
   const leftCells = remainingCells(game);
   const litHaras = LEVELS.filter((l) => l.day === night.day && (stars[l.id] ?? 0) > 0).length;
 
-  useEffect(() => {
-    const p = createGame(LEVELS[levelId - 1]!);
+  function boot() {
+    const p = createGame(LEVELS[levelId - 1]!, difficulty);
     pack.current = p;
     setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
     setBurst([]);
     setFire([]);
-    setHolding(null);
-    setSwap(null);
     setDrops([]);
     setSpawns([]);
     setToast(null);
     setBusy(false);
     busyRef.current = false;
+  }
+
+  useEffect(() => {
+    boot();
     void audio.ensure().then(() => audio.startNight());
     return () => audio.stopNight();
-  }, [levelId]);
+  }, [levelId, difficulty]);
 
   useEffect(() => {
     if (busy || game.status !== "play") return;
@@ -110,8 +110,7 @@ export function Play({
   function bang(specials: string[], cells: Pos[]) {
     const boom = specials.includes("dynamite") || specials.includes("cannon") || specials.includes("burst");
     if (specials.includes("cannon")) audio.cannon();
-    else if (specials.includes("dynamite")) audio.dynamite();
-    else if (specials.includes("burst")) audio.dynamite();
+    else if (specials.includes("dynamite") || specials.includes("burst")) audio.dynamite();
     if (boom) setFire(cells);
   }
 
@@ -141,17 +140,16 @@ export function Play({
       audio.light();
       setBurst(ev.cells);
       snap();
-      await wait(60);
       const fallen = applyGravity(g);
       setDrops(fallen);
       setBurst([]);
       snap();
-      await wait(fallen.length ? DROP_MS : 20);
+      await wait(fallen.length ? DROP_MS : 0);
       setDrops([]);
       const born = applyFill(g, rng);
       setSpawns(born);
       snap();
-      await wait(born.length ? SPAWN_MS : 20);
+      await wait(born.length ? SPAWN_MS : 0);
       setSpawns([]);
       setFire([]);
     }
@@ -161,47 +159,35 @@ export function Play({
     snap();
   }
 
-  async function performSwap(a: Pos, b: Pos, dir: Dir, steps: number, against: boolean) {
+  async function performSwap(a: Pos, b: Pos) {
     if (busyRef.current) return;
     const g = pack.current.game;
+    if (!canSwap(g, a, b)) {
+      audio.grab();
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     g.selected = null;
     g.hint = null;
-    setHolding(null);
-
-    if (against || !canSwap(g, a, b, dir)) {
-      setSwap({ a, b, dir, mode: "bounce", steps: 1 });
-      audio.grab();
-      await wait(BOUNCE_MS);
-      setSwap(null);
-      busyRef.current = false;
-      setBusy(false);
-      return;
-    }
-
-    setSwap({ a, b, dir, mode: "swap", steps });
-    audio.swap();
-    await wait(SWAP_MS);
     doSwap(g, a, b);
-    setSwap(null);
+    audio.swap();
     snap();
     const boom = tryActivateSpecial(g, a, b);
     if (boom) {
       bang([boom.special], boom.cells);
       audio.light();
       snap();
-      await wait(180);
       const fallen = applyGravity(g);
       setDrops(fallen);
       setFire([]);
       snap();
-      await wait(fallen.length ? DROP_MS : 20);
+      await wait(fallen.length ? DROP_MS : 0);
       setDrops([]);
       const born = applyFill(g, pack.current.rng);
       setSpawns(born);
       snap();
-      await wait(born.length ? SPAWN_MS : 20);
+      await wait(born.length ? SPAWN_MS : 0);
       setSpawns([]);
     }
     await resolveBoard(a);
@@ -220,16 +206,14 @@ export function Play({
     void audio.ensure();
     const g = pack.current.game;
     if (g.status !== "play") return false;
-    const goal = swipeGoal(g, from, dir);
-    if (!goal) return false;
+    const to = swipeGoal(g, from, dir);
+    if (!to) return false;
     if (
       g.cat &&
-      ((g.cat.r === from.r && g.cat.c === from.c) ||
-        (g.cat.r === goal.to.r && g.cat.c === goal.to.c))
+      ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
     )
       return false;
-    setHolding(from);
-    void performSwap(from, goal.to, dir, goal.steps, goal.against);
+    void performSwap(from, to);
     return true;
   }
 
@@ -272,7 +256,6 @@ export function Play({
         <div className="hud-mid">
           <div className="title-sm">
             {night.day} · {game.level.hara}
-            {game.wind && <i className={`wind-mark ${game.wind}`} />}
           </div>
         </div>
         <button
@@ -302,8 +285,6 @@ export function Play({
           game={game}
           burst={burst}
           fire={fire}
-          holding={holding}
-          swap={swap}
           drops={drops}
           spawns={spawns}
           onSwipe={onSwipe}
@@ -314,32 +295,15 @@ export function Play({
         <div className="overlay">
           <div className="panel">
             {game.status === "won" ? (
-              <>
-                <div className="stars">
-                  {"★".repeat(game.stars)}
-                  {"☆".repeat(3 - game.stars)}
-                </div>
-              </>
+              <div className="stars">
+                {"★".repeat(game.stars)}
+                {"☆".repeat(3 - game.stars)}
+              </div>
             ) : (
               <div className="emoji">🌑</div>
             )}
             <div className="col-btns">
-              <button
-                className="btn-main"
-                onClick={() => {
-                  const p = createGame(LEVELS[levelId - 1]!);
-                  pack.current = p;
-                  setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
-                  setBurst([]);
-                  setFire([]);
-                  setHolding(null);
-                  setSwap(null);
-                  setDrops([]);
-                  setSpawns([]);
-                  busyRef.current = false;
-                  setBusy(false);
-                }}
-              >
+              <button className="btn-main" onClick={boot}>
                 تاني
               </button>
               {game.status === "won" && levelId < LEVELS.length && (

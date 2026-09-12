@@ -18,16 +18,12 @@ import {
   tryActivateSpecial,
 } from "../game/engine";
 import { HARAS, LEVELS, nightOf } from "../game/levels";
-import type { Difficulty, Dir, DropFx, Game, Pos, SwapFx } from "../game/types";
+import type { Difficulty, Dir, DropFx, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const SWAP_MS = 260;
-const BOUNCE_MS = 240;
-const POP_MS = 200;
-const DROP_MS = 280;
-const SPAWN_MS = 160;
-const FIRE_MS = 320;
+const POP_MS = 240;
+const DROP_MS = 300;
 
 type Props = {
   levelId: number;
@@ -58,7 +54,6 @@ export function Play({
   const [fire, setFire] = useState<Pos[]>([]);
   const [drops, setDrops] = useState<DropFx[]>([]);
   const [spawns, setSpawns] = useState<number[]>([]);
-  const [swapFx, setSwapFx] = useState<SwapFx | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -74,7 +69,6 @@ export function Play({
     setFire([]);
     setDrops([]);
     setSpawns([]);
-    setSwapFx(null);
     setToast(null);
     setBusy(false);
     busyRef.current = false;
@@ -119,9 +113,22 @@ export function Play({
     if (boom) setFire(cells);
   }
 
+  async function fallAndFill() {
+    const g = pack.current.game;
+    const fallen = applyGravity(g);
+    const born = applyFill(g, pack.current.rng);
+    setDrops(fallen);
+    setSpawns(born);
+    setBurst([]);
+    snap();
+    await wait(fallen.length || born.length ? DROP_MS : 40);
+    setDrops([]);
+    setSpawns([]);
+    setFire([]);
+  }
+
   async function resolveBoard(origin: Pos | null) {
     const g = pack.current.game;
-    const rng = pack.current.rng;
     let loops = 0;
     while (loops < 12) {
       loops++;
@@ -143,67 +150,52 @@ export function Play({
       origin = null;
       bang(ev.specials, ev.cells);
       audio.light();
-      setBurst(ev.cells);
       snap();
-      await wait(ev.specials.length ? FIRE_MS : 50);
-      const fallen = applyGravity(g);
-      setDrops(fallen);
-      setBurst([]);
-      snap();
-      await wait(fallen.length ? DROP_MS : 0);
-      setDrops([]);
-      const born = applyFill(g, rng);
-      setSpawns(born);
-      snap();
-      await wait(born.length ? SPAWN_MS : 0);
-      setSpawns([]);
-      setFire([]);
+      await fallAndFill();
     }
     setToast(null);
-    ensureMoves(g, rng);
+    ensureMoves(g, pack.current.rng);
     finishCheck(g);
     snap();
   }
 
-  async function performSwap(a: Pos, b: Pos, dir: Dir) {
+  function canSwipe(from: Pos, dir: Dir) {
+    if (busyRef.current) return false;
+    const g = pack.current.game;
+    if (g.status !== "play") return false;
+    const to = swipeGoal(g, from, dir);
+    if (!to) return false;
+    if (
+      g.cat &&
+      ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
+    )
+      return false;
+    return canSwap(g, from, to);
+  }
+
+  async function performSwap(a: Pos, b: Pos) {
     if (busyRef.current) return;
     const g = pack.current.game;
-    const ok = canSwap(g, a, b);
     busyRef.current = true;
     setBusy(true);
     g.selected = null;
     g.hint = null;
-    setSwapFx({ a, b, dir, mode: ok ? "swap" : "bounce" });
-    snap();
-    if (ok) audio.swap();
-    else audio.grab();
-    await wait(ok ? SWAP_MS : BOUNCE_MS);
-    setSwapFx(null);
-    if (!ok) {
-      snap();
-      busyRef.current = false;
-      setBusy(false);
-      return;
-    }
     doSwap(g, a, b);
+    audio.swap();
     snap();
-    const boom = tryActivateSpecial(g, a, b);
-    if (boom) {
-      bang([boom.special], boom.cells);
-      audio.light();
+    const sa = g.grid[a.r]![a.c]?.special ?? "none";
+    const sb = g.grid[b.r]![b.c]?.special ?? "none";
+    if (sa !== "none" || sb !== "none") {
+      setBurst([a, b]);
       snap();
-      await wait(FIRE_MS);
-      const fallen = applyGravity(g);
-      setDrops(fallen);
-      setFire([]);
-      snap();
-      await wait(fallen.length ? DROP_MS : 0);
-      setDrops([]);
-      const born = applyFill(g, pack.current.rng);
-      setSpawns(born);
-      snap();
-      await wait(born.length ? SPAWN_MS : 0);
-      setSpawns([]);
+      await wait(POP_MS);
+      const boom = tryActivateSpecial(g, a, b);
+      if (boom) {
+        bang([boom.special], boom.cells);
+        audio.light();
+        snap();
+      }
+      await fallAndFill();
     }
     await resolveBoard(a);
     afterTurn(g, pack.current.rng);
@@ -216,20 +208,11 @@ export function Play({
     setBusy(false);
   }
 
-  function onSwipe(from: Pos, dir: Dir) {
-    if (busyRef.current) return false;
-    void audio.ensure();
+  function onSwap(from: Pos, dir: Dir) {
     const g = pack.current.game;
-    if (g.status !== "play") return false;
     const to = swipeGoal(g, from, dir);
-    if (!to) return false;
-    if (
-      g.cat &&
-      ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
-    )
-      return false;
-    void performSwap(from, to, dir);
-    return true;
+    if (!to) return;
+    void performSwap(from, to);
   }
 
   const dawn = 1 - game.moves / Math.max(1, game.maxMoves);
@@ -302,8 +285,10 @@ export function Play({
           fire={fire}
           drops={drops}
           spawns={spawns}
-          swapFx={swapFx}
-          onSwipe={onSwipe}
+          busy={busy}
+          canSwipe={canSwipe}
+          onSwap={onSwap}
+          onReject={() => audio.grab()}
         />
       </div>
 

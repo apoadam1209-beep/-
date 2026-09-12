@@ -1,4 +1,4 @@
-const VERSION = "ramadan-nur-v8";
+const VERSION = "ramadan-nur-v9";
 const SHELL = `${VERSION}-shell`;
 
 const PRECACHE = [

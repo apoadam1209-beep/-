@@ -215,13 +215,17 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   justify-content: center;
   overflow: visible;
 }
+.board-shell {
+  position: relative;
+  width: min(94vw, 560px);
+}
 .board-frame {
   display: grid;
   gap: 6px;
-  width: min(94vw, 560px);
+  width: 100%;
   padding: 12px;
   border-radius: 1.15rem;
-  overflow: visible;
+  overflow: hidden;
   touch-action: none;
   overscroll-behavior: none;
   background:
@@ -231,6 +235,14 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
     0 0 0 1px rgba(0,0,0,0.45),
     0 28px 60px -18px #000,
     inset 0 0 50px rgba(245, 197, 66, 0.06);
+}
+.piece-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 1.15rem;
+  z-index: 4;
 }
 .cell {
   position: relative;
@@ -299,34 +311,32 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
 
 .piece {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
   z-index: 2;
   display: grid;
   place-items: center;
   pointer-events: none;
   will-change: transform;
-  transition: none;
+  transition: transform 0.3s cubic-bezier(.2,.9,.22,1);
 }
 .piece.is-drag {
   transition: none;
   filter: drop-shadow(0 16px 14px rgba(0,0,0,0.55));
 }
-.piece.is-swap {
-  animation: swapGo 0.26s cubic-bezier(.18,.86,.22,1) forwards;
-  z-index: 8;
-}
-.piece.is-bounce {
-  animation: swapBounce 0.24s cubic-bezier(.18,.9,.22,1) forwards;
-  z-index: 8;
+.piece.is-settle {
+  transition: transform 0.16s cubic-bezier(.2,.85,.22,1);
+  filter: drop-shadow(0 16px 14px rgba(0,0,0,0.55));
 }
 .piece.is-pop {
-  animation: popOut 0.2s ease-in forwards;
+  transition: none;
+  animation: popOut 0.24s ease-in forwards;
 }
 .piece.is-drop {
-  animation: dropIn 0.28s cubic-bezier(.2,.9,.22,1) both;
+  z-index: 6;
 }
 .piece.is-spawn {
-  animation: spawnIn 0.16s cubic-bezier(.2,.85,.2,1) both;
+  z-index: 6;
 }
 .piece.is-swap .lantern,
 .piece.is-bounce .lantern,

@@ -127,14 +127,14 @@ export function Board({
 
   function commit(pos: Pos, dir: Dir, dx: number, dy: number, stride: number) {
     if (!canSwipe(pos, dir)) {
-      onReject();
       bounceHome(pos, dx, dy, dir);
+      requestAnimationFrame(() => onReject());
       return;
     }
     const fullX = dir === "right" ? stride : dir === "left" ? -stride : 0;
     const fullY = dir === "down" ? stride : dir === "up" ? -stride : 0;
     const remain = Math.hypot(fullX - dx, fullY - dy) / stride;
-    const ms = Math.max(50, Math.round(remain * 160));
+    const ms = remain < 0.04 ? 32 : 160;
     setPull({ pos, dx: fullX, dy: fullY, dir, settle: true });
     clearTimer();
     settleTimer.current = window.setTimeout(() => {

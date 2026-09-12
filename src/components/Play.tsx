@@ -22,8 +22,13 @@ import type { Difficulty, Dir, DropFx, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const afterPaint = () =>
+  new Promise<void>((r) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => r()));
+  });
 const POP_MS = 240;
 const DROP_MS = 300;
+const SEE_MS = 50;
 
 type Props = {
   levelId: number;
@@ -108,9 +113,13 @@ export function Play({
 
   function bang(specials: string[], cells: Pos[]) {
     const boom = specials.includes("dynamite") || specials.includes("cannon") || specials.includes("burst");
+    if (boom) setFire(cells);
+  }
+
+  async function boomSound(specials: string[]) {
+    await afterPaint();
     if (specials.includes("cannon")) audio.cannon();
     else if (specials.includes("dynamite") || specials.includes("burst")) audio.dynamite();
-    if (boom) setFire(cells);
   }
 
   async function fallAndFill() {
@@ -135,22 +144,23 @@ export function Play({
       const { runs, cells } = matchCells(g);
       if (!cells.length) break;
       setBurst(cells);
-      audio.ignite(cells.length);
-      if (g.combo >= 2) {
-        setToast(COMBO_NAME[Math.min(g.combo, COMBO_NAME.length - 1)] ?? "يا سلام");
-        audio.daff();
-      }
       const four = runs.find((r) => r.cells.length === 4);
       const five = runs.find((r) => r.cells.length >= 5);
       if (five) setToast("مدفع");
       else if (four) setToast("ديناميت");
+      else if (g.combo >= 2) setToast(COMBO_NAME[Math.min(g.combo, COMBO_NAME.length - 1)] ?? "يا سلام");
       snap();
-      await wait(POP_MS);
+      await afterPaint();
+      await wait(SEE_MS);
+      audio.ignite(cells.length);
+      if (g.combo >= 2) audio.daff();
+      await wait(POP_MS - SEE_MS);
       const ev = applyClear(g, cells, origin, runs);
       origin = null;
       bang(ev.specials, ev.cells);
-      audio.light();
       snap();
+      await boomSound(ev.specials);
+      audio.light();
       await fallAndFill();
     }
     setToast(null);
@@ -181,19 +191,24 @@ export function Play({
     g.selected = null;
     g.hint = null;
     doSwap(g, a, b);
-    audio.swap();
     snap();
+    await afterPaint();
+    audio.swap();
     const sa = g.grid[a.r]![a.c]?.special ?? "none";
     const sb = g.grid[b.r]![b.c]?.special ?? "none";
     if (sa !== "none" || sb !== "none") {
       setBurst([a, b]);
       snap();
-      await wait(POP_MS);
+      await afterPaint();
+      await wait(SEE_MS);
+      audio.ignite(2);
+      await wait(POP_MS - SEE_MS);
       const boom = tryActivateSpecial(g, a, b);
       if (boom) {
         bang([boom.special], boom.cells);
-        audio.light();
         snap();
+        await boomSound([boom.special]);
+        audio.light();
       }
       await fallAndFill();
     }
@@ -288,7 +303,9 @@ export function Play({
           busy={busy}
           canSwipe={canSwipe}
           onSwap={onSwap}
-          onReject={() => audio.grab()}
+          onReject={() => {
+            void afterPaint().then(() => audio.grab());
+          }}
         />
       </div>
 

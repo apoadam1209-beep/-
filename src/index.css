@@ -356,7 +356,7 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   place-items: center;
   transform-origin: 50% 8%;
   animation: swing 3.8s ease-in-out var(--swing-delay, 0s) infinite;
-  filter: drop-shadow(0 8px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 10px color-mix(in srgb, var(--glow) 70%, transparent));
+  filter: drop-shadow(0 6px 5px rgba(0,0,0,0.45));
   pointer-events: none;
 }
 .fn-aura {
@@ -364,8 +364,8 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   inset: 16%;
   border-radius: 50%;
   background: radial-gradient(circle, var(--glow) 0%, transparent 70%);
-  opacity: 0.42;
-  filter: blur(7px);
+  opacity: 0.34;
+  filter: blur(4px);
   animation: aura 2.2s ease-in-out var(--swing-delay, 0s) infinite;
   pointer-events: none;
   z-index: 1;
@@ -378,7 +378,7 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   object-fit: contain;
   object-position: center 42%;
   pointer-events: none;
-  filter: saturate(1.35) contrast(1.12) drop-shadow(0 0 8px color-mix(in srgb, var(--glow) 70%, transparent));
+  filter: saturate(1.28) contrast(1.08);
 }
 .sp-art {
   position: absolute;

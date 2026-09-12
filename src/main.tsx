@@ -9,7 +9,7 @@ if (
   window.self === window.top
 ) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
+    navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(() => {
       /* offline optional */
     });
   });

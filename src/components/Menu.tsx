@@ -1,4 +1,5 @@
 import { LEVELS, NIGHTS } from "../game/levels";
+import { Install } from "./Install";
 
 type Props = {
   unlocked: number;
@@ -32,6 +33,7 @@ export function Menu({ unlocked, stars, onPlay, onNights, onHowTo }: Props) {
           <button className="btn-ghost" onClick={onHowTo}>
             إزاي تلعب؟
           </button>
+          <Install />
         </div>
       </div>
     </div>

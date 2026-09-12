@@ -1,11 +1,30 @@
-const VERSION = "ramadan-nur-v1";
+const VERSION = "ramadan-nur-v3";
 const SHELL = `${VERSION}-shell`;
+
+const PRECACHE = [
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./manifest.webmanifest",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/apple-touch-icon.png",
+  "./art/night-alley.jpg",
+  "./art/night-square.jpg",
+  "./art/night-roof.jpg",
+  "./art/dawn-sky.jpg",
+  "./art/glass-ruby.png",
+  "./art/glass-gold.png",
+  "./art/glass-emerald.png",
+  "./art/glass-aqua.png",
+  "./art/glass-violet.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      .then((c) => c.addAll(["./", "./index.html", "./manifest.webmanifest"]))
+      .then((c) => c.addAll(PRECACHE))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())
   );

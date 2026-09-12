@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { LanternView } from "./Lantern";
 import { COLOR_META, stepDir } from "../game/engine";
-import type { Dir, DropFx, Game, Pos } from "../game/types";
+import type { Dir, DropFx, Game, Pos, SwapFx } from "../game/types";
 import { cn } from "../utils/cn";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   fire: Pos[];
   drops: DropFx[];
   spawns: number[];
+  swapFx: SwapFx | null;
   onSwipe: (from: Pos, dir: Dir) => boolean;
 };
 
@@ -21,9 +22,14 @@ function same(a: Pos, b: Pos) {
   return a.r === b.r && a.c === b.c;
 }
 
-const THRESH = 8;
+function vec(dir: Dir) {
+  if (dir === "right") return { sx: 1, sy: 0, rot: 10 };
+  if (dir === "left") return { sx: -1, sy: 0, rot: -10 };
+  if (dir === "down") return { sx: 0, sy: 1, rot: 8 };
+  return { sx: 0, sy: -1, rot: -8 };
+}
 
-export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
+export function Board({ game, burst, fire, drops, spawns, swapFx, onSwipe }: Props) {
   const n = game.size;
   const burstSet = new Set(burst.map(keyOf));
   const fireSet = new Set(fire.map(keyOf));
@@ -42,6 +48,16 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
   function dirOf(dx: number, dy: number): Dir {
     if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
     return dy > 0 ? "down" : "up";
+  }
+
+  function tryCommit(d: NonNullable<typeof drag.current>, dx: number, dy: number, force: boolean) {
+    if (d.done) return;
+    const dist = Math.hypot(dx, dy);
+    const need = force ? d.w * 0.22 : d.w * 0.36;
+    if (dist < need) return;
+    const started = onSwipe(d.pos, dirOf(dx, dy));
+    setPull(null);
+    drag.current = started ? { ...d, done: true } : null;
   }
 
   function onDown(e: PointerEvent<HTMLButtonElement>, pos: Pos) {
@@ -66,20 +82,27 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
       dy = Math.max(-d.w, Math.min(d.w, dy));
     }
     setPull({ pos: d.pos, dx, dy });
-    if (Math.hypot(rawX, rawY) < THRESH) return;
-    const started = onSwipe(d.pos, dirOf(rawX, rawY));
-    setPull(null);
-    drag.current = started ? { ...d, done: true } : null;
+    tryCommit(d, rawX, rawY, false);
   }
 
-  function onUp() {
+  function onUp(e: PointerEvent<HTMLButtonElement>) {
+    const d = drag.current;
+    if (d && !d.done) tryCommit(d, e.clientX - d.x, e.clientY - d.y, true);
     drag.current = null;
     setPull(null);
   }
 
   function pieceStyle(r: number, c: number, id: number | undefined): CSSProperties {
     const style: Record<string, string | number> = {};
-    if (pull && same({ r, c }, pull.pos)) {
+    const pos = { r, c };
+    if (swapFx && (same(pos, swapFx.a) || same(pos, swapFx.b))) {
+      const lead = same(pos, swapFx.a);
+      const v = vec(swapFx.dir);
+      style["--sx"] = lead ? v.sx : -v.sx;
+      style["--sy"] = lead ? v.sy : -v.sy;
+      style["--rot"] = lead ? v.rot : -v.rot;
+      style.zIndex = lead ? 10 : 9;
+    } else if (pull && same(pos, pull.pos)) {
       style.transform = `translate(${pull.dx}px, ${pull.dy}px)`;
       style.zIndex = 9;
       style.transition = "none";
@@ -94,7 +117,7 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
             ? "down"
             : "up"
       );
-      if (same({ r, c }, nb)) {
+      if (same(pos, nb)) {
         style.transform = `translate(${-pull.dx}px, ${-pull.dy}px)`;
         style.zIndex = 8;
         style.transition = "none";
@@ -118,6 +141,7 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
           const ghost = game.ghost[r]![c];
           const isCat = game.cat?.r === r && game.cat?.c === c;
           const dragging = !!(pull && same(pos, pull.pos));
+          const swapping = !!(swapFx && (same(pos, swapFx.a) || same(pos, swapFx.b)));
           const popping = burstSet.has(k);
           const dropping = !!(cell && dropMap.has(cell.id));
           const spawning = !!(cell && spawnSet.has(cell.id));
@@ -133,7 +157,7 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
                 popping && "is-burst",
                 isCat && "is-cat",
                 ghost && "is-ghost",
-                (dragging || dropping) && "is-hold",
+                (dragging || dropping || swapping) && "is-hold",
                 dragging && "is-lead"
               )}
               style={ghostHex ? ({ ["--ghost" as string]: ghostHex } as CSSProperties) : undefined}
@@ -153,13 +177,15 @@ export function Board({ game, burst, fire, drops, spawns, onSwipe }: Props) {
                   className={cn(
                     "piece",
                     dragging && "is-drag",
+                    swapping && swapFx?.mode === "swap" && "is-swap",
+                    swapping && swapFx?.mode === "bounce" && "is-bounce",
                     popping && "is-pop",
                     dropping && "is-drop",
                     spawning && "is-spawn"
                   )}
                   style={pieceStyle(r, c, cell.id)}
                 >
-                  <LanternView cell={cell} selected={dragging} hint={hintSet.has(k)} />
+                  <LanternView cell={cell} selected={dragging || swapping} hint={hintSet.has(k)} />
                 </div>
               )}
               {fireSet.has(k) && (

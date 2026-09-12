@@ -38,14 +38,14 @@ export function LanternView({
         ["--swing-delay" as string]: delay,
       }}
     >
-      <span className="fn-hook" />
-      <span className="fn-cap" />
-      <span className="fn-body">
-        <span className="fn-gem" />
-        <span className="fn-flame" />
-        <span className="fn-shine" />
-      </span>
-      <span className="fn-base" />
+      <span className="fn-aura" />
+      <img
+        className="fn-photo"
+        src={meta.art}
+        alt=""
+        draggable={false}
+      />
+      <span className="fn-flame" />
       {cell.special !== "none" && <span className="badge">{BADGE[cell.special]}</span>}
     </div>
   );

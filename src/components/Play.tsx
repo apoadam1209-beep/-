@@ -16,13 +16,17 @@ import {
   remainingDark,
   stepDir,
   tryActivateMoon,
-  undoSwap,
 } from "../game/engine";
 import { HARAS, LEVELS, nightOf } from "../game/levels";
-import type { Dir, Game, Pos } from "../game/types";
+import type { Dir, DropFx, Game, Pos, SwapFx } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const SWAP_MS = 340;
+const BOUNCE_MS = 420;
+const POP_MS = 220;
+const DROP_MS = 320;
+const SPAWN_MS = 240;
 
 type Props = {
   levelId: number;
@@ -45,6 +49,9 @@ export function Play({
   const [game, setGame] = useState<Game>(pack.current.game);
   const [burst, setBurst] = useState<Pos[]>([]);
   const [holding, setHolding] = useState<Pos | null>(null);
+  const [swap, setSwap] = useState<SwapFx | null>(null);
+  const [drops, setDrops] = useState<DropFx[]>([]);
+  const [spawns, setSpawns] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const night = nightOf(levelId);
@@ -56,6 +63,9 @@ export function Play({
     setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
     setBurst([]);
     setHolding(null);
+    setSwap(null);
+    setDrops([]);
+    setSpawns([]);
     setBusy(false);
     busyRef.current = false;
     void audio.ensure().then(() => audio.startNight());
@@ -94,63 +104,80 @@ export function Play({
       loops++;
       const { runs, cells } = matchCells(g);
       if (!cells.length) break;
+      setBurst(cells);
+      audio.ignite(cells.length);
+      snap();
+      await wait(POP_MS);
       const ev = applyClear(g, cells, origin, runs);
       origin = null;
-      setBurst(ev.cells);
-      audio.ignite(ev.cells.length);
       if (ev.specials.includes("lineH") || ev.specials.includes("lineV")) audio.windLine();
       if (ev.specials.includes("burst")) audio.burst();
       if (ev.specials.includes("moon")) audio.moon();
       audio.light();
+      setBurst(ev.cells);
       snap();
-      await wait(300);
-      applyGravity(g);
-      snap();
-      await wait(180);
-      applyFill(g, rng);
-      snap();
-      await wait(120);
+      await wait(80);
+      const fallen = applyGravity(g);
+      setDrops(fallen);
       setBurst([]);
+      snap();
+      await wait(fallen.length ? DROP_MS : 40);
+      setDrops([]);
+      const born = applyFill(g, rng);
+      setSpawns(born);
+      snap();
+      await wait(born.length ? SPAWN_MS : 40);
+      setSpawns([]);
     }
     ensureMoves(g, rng);
     finishCheck(g);
     snap();
   }
 
-  async function performSwap(a: Pos, b: Pos) {
+  async function performSwap(a: Pos, b: Pos, dir: Dir) {
     if (busyRef.current) return;
     const g = pack.current.game;
-    if (!canSwap(g, a, b)) {
-      doSwap(g, a, b);
-      snap();
-      audio.grab();
-      await wait(160);
-      undoSwap(g, a, b);
-      g.selected = null;
-      setHolding(null);
-      snap();
-      return;
-    }
+    const ok = canSwap(g, a, b);
     busyRef.current = true;
     setBusy(true);
     g.selected = null;
     g.hint = null;
     setHolding(null);
-    doSwap(g, a, b);
+
+    if (!ok) {
+      setSwap({ a, b, dir, mode: "bounce" });
+      audio.grab();
+      await wait(BOUNCE_MS);
+      setSwap(null);
+      busyRef.current = false;
+      setBusy(false);
+      return;
+    }
+
+    setSwap({ a, b, dir, mode: "swap" });
     audio.swap();
+    await wait(SWAP_MS);
+    doSwap(g, a, b);
+    setSwap(null);
     snap();
-    await wait(120);
     const moon = tryActivateMoon(g, a, b);
     if (moon) {
       setBurst(moon.cells);
       audio.moon();
       audio.light();
       snap();
-      await wait(320);
-      applyGravity(g);
-      applyFill(g, pack.current.rng);
+      await wait(280);
+      const fallen = applyGravity(g);
+      setDrops(fallen);
       setBurst([]);
       snap();
+      await wait(fallen.length ? DROP_MS : 40);
+      setDrops([]);
+      const born = applyFill(g, pack.current.rng);
+      setSpawns(born);
+      snap();
+      await wait(born.length ? SPAWN_MS : 40);
+      setSpawns([]);
     }
     await resolveBoard(a);
     afterTurn(g, pack.current.rng);
@@ -164,19 +191,20 @@ export function Play({
   }
 
   function onSwipe(from: Pos, dir: Dir) {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
     void audio.ensure();
     const g = pack.current.game;
-    if (g.status !== "play") return;
+    if (g.status !== "play") return false;
     const to = stepDir(from, dir);
-    if (to.r < 0 || to.c < 0 || to.r >= g.size || to.c >= g.size) return;
+    if (to.r < 0 || to.c < 0 || to.r >= g.size || to.c >= g.size) return false;
     if (
       g.cat &&
       ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
     )
-      return;
+      return false;
     setHolding(from);
-    void performSwap(from, to);
+    void performSwap(from, to, dir);
+    return true;
   }
 
   const dawn = 1 - game.moves / Math.max(1, game.maxMoves);
@@ -242,7 +270,15 @@ export function Play({
       </div>
 
       <div className="board-wrap">
-        <Board game={game} burst={burst} holding={holding} onSwipe={onSwipe} />
+        <Board
+          game={game}
+          burst={burst}
+          holding={holding}
+          swap={swap}
+          drops={drops}
+          spawns={spawns}
+          onSwipe={onSwipe}
+        />
       </div>
 
       <p className="hint-line">اسحب الفانوس لأي اتجاه · طابق ثلاثة جنب الإطار الذهبي</p>
@@ -277,9 +313,14 @@ export function Play({
                 onClick={() => {
                   const p = createGame(LEVELS[levelId - 1]!);
                   pack.current = p;
-                  setGame({ ...p.game, grid: p.game.grid.map((r) => r.slice()) });
+                  setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
                   setBurst([]);
                   setHolding(null);
+                  setSwap(null);
+                  setDrops([]);
+                  setSpawns([]);
+                  busyRef.current = false;
+                  setBusy(false);
                 }}
               >
                 تاني

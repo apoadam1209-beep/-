@@ -1,4 +1,4 @@
-const VERSION = "ramadan-nur-v4";
+const VERSION = "ramadan-nur-v5";
 const SHELL = `${VERSION}-shell`;
 
 const PRECACHE = [
@@ -13,11 +13,11 @@ const PRECACHE = [
   "./art/night-square.jpg",
   "./art/night-roof.jpg",
   "./art/dawn-sky.jpg",
-  "./art/glass-ruby.png",
-  "./art/glass-gold.png",
-  "./art/glass-emerald.png",
-  "./art/glass-aqua.png",
-  "./art/glass-violet.png",
+  "./art/fanoos-ruby.png",
+  "./art/fanoos-gold.png",
+  "./art/fanoos-emerald.png",
+  "./art/fanoos-aqua.png",
+  "./art/fanoos-violet.png",
 ];
 
 self.addEventListener("install", (event) => {

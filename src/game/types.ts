@@ -3,8 +3,16 @@ export type Special = "none" | "lineH" | "lineV" | "burst" | "moon";
 export type NightId = "alley" | "square" | "roof" | "dawn";
 export type Status = "play" | "won" | "lost";
 export type Dir = "up" | "down" | "left" | "right";
-
 export type Pos = { r: number; c: number };
+
+export type SwapFx = {
+  a: Pos;
+  b: Pos;
+  dir: Dir;
+  mode: "swap" | "bounce";
+};
+
+export type DropFx = { id: number; dist: number };
 
 export type Cell = {
   id: number;

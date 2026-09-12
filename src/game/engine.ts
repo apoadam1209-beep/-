@@ -1,16 +1,16 @@
-import type { Cell, ColorId, Dir, Game, LevelDef, Pos, Special } from "./types";
+import type { Cell, ColorId, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
 
 export const ALL_COLORS: ColorId[] = ["ruby", "emerald", "gold", "aqua", "violet"];
 
 export const COLOR_META: Record<
   ColorId,
-  { name: string; hex: string; deep: string }
+  { name: string; hex: string; deep: string; art: string }
 > = {
-  ruby: { name: "أحمر", hex: "#ff2a2a", deep: "#8a0000" },
-  emerald: { name: "أخضر", hex: "#00e06a", deep: "#006b32" },
-  gold: { name: "ذهبي", hex: "#ffd000", deep: "#9a6a00" },
-  aqua: { name: "أزرق", hex: "#00d0f0", deep: "#006a88" },
-  violet: { name: "بنفسج", hex: "#c84bff", deep: "#5a0088" },
+  ruby: { name: "أحمر", hex: "#ff2a2a", deep: "#8a0000", art: "art/fanoos-ruby.png" },
+  emerald: { name: "أخضر", hex: "#00e06a", deep: "#006b32", art: "art/fanoos-emerald.png" },
+  gold: { name: "ذهبي", hex: "#ffd000", deep: "#9a6a00", art: "art/fanoos-gold.png" },
+  aqua: { name: "أزرق", hex: "#00d0f0", deep: "#006a88", art: "art/fanoos-aqua.png" },
+  violet: { name: "بنفسج", hex: "#c84bff", deep: "#5a0088", art: "art/fanoos-violet.png" },
 };
 
 let nid = 1;
@@ -299,14 +299,16 @@ export function applyClear(
   return { kind: "clear", cells: blown, specials };
 }
 
-export function applyGravity(g: Game) {
+export function applyGravity(g: Game): DropFx[] {
   const n = g.size;
+  const drops: DropFx[] = [];
   for (let c = 0; c < n; c++) {
     let write = n - 1;
     for (let r = n - 1; r >= 0; r--) {
       const cell = g.grid[r]![c];
       if (cell) {
         if (write !== r) {
+          drops.push({ id: cell.id, dist: write - r });
           g.grid[write]![c] = cell;
           g.grid[r]![c] = null;
         }
@@ -314,15 +316,22 @@ export function applyGravity(g: Game) {
       }
     }
   }
+  return drops;
 }
 
-export function applyFill(g: Game, rng: () => number) {
+export function applyFill(g: Game, rng: () => number): number[] {
   const n = g.size;
+  const born: number[] = [];
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      if (!g.grid[r]![c]) g.grid[r]![c] = makeCell(pickColor(rng, g.colors, []));
+      if (!g.grid[r]![c]) {
+        const cell = makeCell(pickColor(rng, g.colors, []));
+        g.grid[r]![c] = cell;
+        born.push(cell.id);
+      }
     }
   }
+  return born;
 }
 
 export function currentRuns(g: Game) {

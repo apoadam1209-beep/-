@@ -2,23 +2,22 @@ import { COLOR_META } from "../game/engine";
 import type { Cell } from "../game/types";
 import { cn } from "../utils/cn";
 
-const BADGE: Record<string, string> = {
-  lineH: "ـ",
-  lineV: "|",
-  burst: "✦",
-  moon: "☾",
+const SP_ART: Record<string, string> = {
+  dynamite: "art/dynamite.png",
+  cannon: "art/cannon.png",
+  burst: "art/dynamite.png",
 };
 
 export function LanternView({
   cell,
   selected,
   hint,
-  dim,
+  wind,
 }: {
   cell: Cell;
   selected?: boolean;
   hint?: boolean;
-  dim?: boolean;
+  wind?: string | null;
 }) {
   const meta = COLOR_META[cell.color];
   const delay = `${(cell.id % 7) * 0.31}s`;
@@ -29,8 +28,8 @@ export function LanternView({
         `c-${cell.color}`,
         selected && "is-selected",
         hint && "is-hint",
-        dim && "is-dim",
-        cell.special !== "none" && "is-special"
+        cell.special !== "none" && "is-special",
+        wind && `lean-${wind}`
       )}
       style={{
         ["--glow" as string]: meta.hex,
@@ -39,14 +38,10 @@ export function LanternView({
       }}
     >
       <span className="fn-aura" />
-      <img
-        className="fn-photo"
-        src={meta.art}
-        alt=""
-        draggable={false}
-      />
-      <span className="fn-flame" />
-      {cell.special !== "none" && <span className="badge">{BADGE[cell.special]}</span>}
+      <img className="fn-photo" src={meta.art} alt="" draggable={false} />
+      {cell.special !== "none" && SP_ART[cell.special] && (
+        <img className="sp-art" src={SP_ART[cell.special]} alt="" draggable={false} />
+      )}
     </div>
   );
 }

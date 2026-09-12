@@ -155,32 +155,66 @@ function clonePos(p: Pos): Pos {
   return { r: p.r, c: p.c };
 }
 
+export function oppDir(dir: Dir): Dir {
+  if (dir === "up") return "down";
+  if (dir === "down") return "up";
+  if (dir === "left") return "right";
+  return "left";
+}
+
+export function stepDir(from: Pos, dir: Dir, n = 1): Pos {
+  if (dir === "up") return { r: from.r - n, c: from.c };
+  if (dir === "down") return { r: from.r + n, c: from.c };
+  if (dir === "left") return { r: from.r, c: from.c - n };
+  return { r: from.r, c: from.c + n };
+}
+
+export function swipeGoal(
+  g: Game,
+  from: Pos,
+  dir: Dir
+): { to: Pos; steps: number; against: boolean } | null {
+  if (g.wind && dir === oppDir(g.wind)) {
+    const to = stepDir(from, dir, 1);
+    if (!inb(g, to.r, to.c)) return null;
+    return { to, steps: 1, against: true };
+  }
+  let steps = g.wind === dir ? 2 : 1;
+  let to = stepDir(from, dir, steps);
+  if (!inb(g, to.r, to.c) && steps === 2) {
+    steps = 1;
+    to = stepDir(from, dir, 1);
+  }
+  if (!inb(g, to.r, to.c)) return null;
+  return { to, steps, against: false };
+}
+
 export function findHint(g: Game): [Pos, Pos] | null {
   const n = g.size;
+  const dirs: Dir[] = ["up", "down", "left", "right"];
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
       const a = { r, c };
-      for (const b of [
-        { r, c: c + 1 },
-        { r: r + 1, c },
-      ]) {
-        if (!inb(g, b.r, b.c)) continue;
-        if (isCat(g, a) || isCat(g, b)) continue;
-        swapCells(g, a, b);
-        const ok = runsOf(g).length > 0 || specialSwap(g, a, b);
-        swapCells(g, a, b);
-        if (ok) return [a, b];
+      for (const dir of dirs) {
+        const goal = swipeGoal(g, a, dir);
+        if (!goal || goal.against) continue;
+        if (!inb(g, goal.to.r, goal.to.c)) continue;
+        if (isCat(g, a) || isCat(g, goal.to)) continue;
+        if (canSwap(g, a, goal.to, dir)) return [a, goal.to];
       }
     }
   }
   return null;
 }
 
+function specialOf(g: Game, p: Pos): Special {
+  return g.grid[p.r]![p.c]?.special ?? "none";
+}
+
 function specialSwap(g: Game, a: Pos, b: Pos) {
-  const ca = g.grid[a.r]![a.c];
-  const cb = g.grid[b.r]![b.c];
-  if (!ca || !cb) return false;
-  return ca.special === "moon" || cb.special === "moon";
+  const sa = specialOf(g, a);
+  const sb = specialOf(g, b);
+  return (sa !== "none" && sa !== undefined) || (sb !== "none" && sb !== undefined);
 }
 
 function isCat(g: Game, p: Pos) {
@@ -190,7 +224,8 @@ function isCat(g: Game, p: Pos) {
 function lightCells(g: Game, cells: Pos[], power = 1) {
   for (const p of cells) {
     if (!inb(g, p.r, p.c)) continue;
-    g.dark[p.r]![p.c] = Math.max(0, g.dark[p.r]![p.c]! - power);
+    const bonus = g.ghost[p.r]![p.c] ? 1 : 0;
+    g.dark[p.r]![p.c] = Math.max(0, g.dark[p.r]![p.c]! - (power + bonus));
     for (const [dr, dc] of [
       [0, 1],
       [0, -1],
@@ -202,6 +237,17 @@ function lightCells(g: Game, cells: Pos[], power = 1) {
       if (inb(g, rr, cc)) g.dark[rr]![cc] = Math.max(0, g.dark[rr]![cc]! - 1);
     }
   }
+}
+
+function blastArea(g: Game, p: Pos, add: (q: Pos) => void, special: Special) {
+  if (special === "cannon") {
+    for (let c = 0; c < g.size; c++) add({ r: p.r, c });
+    for (let r = 0; r < g.size; r++) add({ r, c: p.c });
+    return;
+  }
+  const rad = special === "dynamite" ? 1 : 1;
+  for (let dr = -rad; dr <= rad; dr++)
+    for (let dc = -rad; dc <= rad; dc++) add({ r: p.r + dr, c: p.c + dc });
 }
 
 function triggerSpecials(g: Game, cells: Pos[]): Pos[] {
@@ -216,15 +262,8 @@ function triggerSpecials(g: Game, cells: Pos[]): Pos[] {
   for (const p of cells) add(p);
   for (const p of cells) {
     const cell = g.grid[p.r]![p.c];
-    if (!cell) continue;
-    if (cell.special === "lineH") {
-      for (let c = 0; c < g.size; c++) add({ r: p.r, c });
-    } else if (cell.special === "lineV") {
-      for (let r = 0; r < g.size; r++) add({ r, c: p.c });
-    } else if (cell.special === "burst") {
-      for (let dr = -1; dr <= 1; dr++)
-        for (let dc = -1; dc <= 1; dc++) add({ r: p.r + dr, c: p.c + dc });
-    }
+    if (!cell || cell.special === "none") continue;
+    blastArea(g, p, add, cell.special);
   }
   return extra;
 }
@@ -248,9 +287,9 @@ function spawnSpecial(g: Game, runs: Run[], origin: Pos | null) {
   const four = runs.find((r) => r.cells.length === 4);
 
   let special: Special = "none";
-  if (five) special = "moon";
+  if (five) special = "cannon";
   else if (cross) special = "burst";
-  else if (four) special = four.dir === "h" ? "lineH" : "lineV";
+  else if (four) special = "dynamite";
   if (special === "none") return;
 
   const place = inb(g, origin.r, origin.c) ? origin : runs[0]!.cells[0]!;
@@ -277,7 +316,9 @@ export function applyClear(
     if (sp && sp !== "none") specials.push(sp);
   }
   const blown = triggerSpecials(g, cells);
-  lightCells(g, blown, 1);
+  const prevColor = blown.map((p) => g.grid[p.r]![p.c]?.color ?? null);
+  const power = specials.some((s) => s === "dynamite" || s === "cannon") ? 2 : 1;
+  lightCells(g, blown, power);
   const keep = new Set<string>();
   if (origin) {
     const five = runs.find((r) => r.cells.length >= 5);
@@ -293,6 +334,12 @@ export function applyClear(
     g.grid[p.r]![p.c] = null;
   }
   spawnSpecial(g, runs, origin && keep.has(`${origin.r},${origin.c}`) ? origin : null);
+  blown.forEach((p, i) => {
+    const col = prevColor[i];
+    if (!col || keep.has(`${p.r},${p.c}`)) return;
+    g.ghost[p.r]![p.c] = col;
+    g.ghostAge[p.r]![p.c] = 0;
+  });
   g.score += blown.length * 40 * Math.max(1, g.combo);
   g.combo += 1;
   g.lit = litOf(g.dark, g.need);
@@ -343,34 +390,44 @@ export function matchCells(g: Game): { runs: Run[]; cells: Pos[] } {
   return { runs, cells: uniquePos(runs) };
 }
 
-function detonateMoon(g: Game, color: ColorId): Pos[] {
-  const cells: Pos[] = [];
-  for (let r = 0; r < g.size; r++)
-    for (let c = 0; c < g.size; c++)
-      if (g.grid[r]![c]?.color === color || g.grid[r]![c]?.special === "moon")
-        cells.push({ r, c });
-  return cells;
-}
-
-export function tryActivateMoon(
+export function tryActivateSpecial(
   g: Game,
   a: Pos,
   b: Pos
-): { kind: "moon"; color: ColorId; cells: Pos[] } | null {
-  const ca = g.grid[a.r]![a.c];
-  const cb = g.grid[b.r]![b.c];
-  if (!ca || !cb) return null;
-  let color: ColorId | null = null;
-  if (ca.special === "moon") color = cb.color;
-  else if (cb.special === "moon") color = ca.color;
-  if (!color) return null;
-  const cells = detonateMoon(g, color);
-  lightCells(g, cells, 2);
-  for (const p of cells) g.grid[p.r]![p.c] = null;
+): { special: Special; cells: Pos[] } | null {
+  const spots: { p: Pos; special: Special }[] = [];
+  for (const p of [a, b]) {
+    const sp = g.grid[p.r]![p.c]?.special ?? "none";
+    if (sp !== "none") spots.push({ p, special: sp });
+  }
+  if (!spots.length) return null;
+  const cells: Pos[] = [];
+  const seen = new Set<string>();
+  const add = (q: Pos) => {
+    const k = `${q.r},${q.c}`;
+    if (seen.has(k) || !inb(g, q.r, q.c)) return;
+    seen.add(k);
+    cells.push(q);
+  };
+  let main: Special = spots[0]!.special;
+  for (const s of spots) {
+    main = s.special;
+    blastArea(g, s.p, add, s.special);
+  }
+  const power = main === "burst" ? 1 : 2;
+  lightCells(g, cells, power);
+  for (const p of cells) {
+    const col = g.grid[p.r]![p.c]?.color ?? null;
+    g.grid[p.r]![p.c] = null;
+    if (col) {
+      g.ghost[p.r]![p.c] = col;
+      g.ghostAge[p.r]![p.c] = 0;
+    }
+  }
   g.score += cells.length * 60;
   g.combo += 1;
   g.lit = litOf(g.dark, g.need);
-  return { kind: "moon", color, cells };
+  return { special: main, cells };
 }
 
 export function wouldMatch(g: Game, a: Pos, b: Pos) {
@@ -380,12 +437,21 @@ export function wouldMatch(g: Game, a: Pos, b: Pos) {
   return ok;
 }
 
-export function canSwap(g: Game, a: Pos, b: Pos) {
+export function canSwap(g: Game, a: Pos, b: Pos, dir?: Dir) {
   if (g.status !== "play") return false;
-  if (!adjacent(a, b)) return false;
   if (!inb(g, a.r, a.c) || !inb(g, b.r, b.c)) return false;
   if (!g.grid[a.r]![a.c] || !g.grid[b.r]![b.c]) return false;
   if (isCat(g, a) || isCat(g, b)) return false;
+  if (dir && g.wind && dir === oppDir(g.wind)) return false;
+  const manhattan = Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
+  const straight = a.r === b.r || a.c === b.c;
+  let distOk = manhattan === 1;
+  if (manhattan === 2 && straight && g.wind) {
+    const inferred: Dir =
+      a.r === b.r ? (b.c > a.c ? "right" : "left") : b.r > a.r ? "down" : "up";
+    distOk = (dir ?? inferred) === g.wind;
+  }
+  if (!distOk) return false;
   return wouldMatch(g, a, b) || specialSwap(g, a, b);
 }
 
@@ -416,6 +482,16 @@ export function afterTurn(g: Game, rng: () => number) {
   g.combo = 1;
   g.selected = null;
   g.hint = null;
+  for (let r = 0; r < g.size; r++) {
+    for (let c = 0; c < g.size; c++) {
+      if (!g.ghost[r]![c]) continue;
+      g.ghostAge[r]![c] += 1;
+      if (g.ghostAge[r]![c]! > 1) {
+        g.ghost[r]![c] = null;
+        g.ghostAge[r]![c] = 0;
+      }
+    }
+  }
   if (g.status !== "play") return;
   g.moves -= 1;
   moveCat(g, rng);
@@ -468,6 +544,9 @@ export function createGame(level: LevelDef): { game: Game; rng: () => number } {
     colors,
     grid,
     dark,
+    ghost: Array.from({ length: level.size }, () => Array<ColorId | null>(level.size).fill(null)),
+    ghostAge: Array.from({ length: level.size }, () => Array<number>(level.size).fill(0)),
+    wind: level.wind,
     moves: level.moves,
     maxMoves: level.moves,
     score: 0,
@@ -507,9 +586,4 @@ export function remainingCells(g: Game) {
   return n;
 }
 
-export function stepDir(from: Pos, dir: Dir): Pos {
-  if (dir === "up") return { r: from.r - 1, c: from.c };
-  if (dir === "down") return { r: from.r + 1, c: from.c };
-  if (dir === "left") return { r: from.r, c: from.c - 1 };
-  return { r: from.r, c: from.c + 1 };
-}
+export const COMBO_NAME = ["", "", "يا سلام", "نور على نور", "الحارة صاحية", "مدفع"];

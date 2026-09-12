@@ -52,7 +52,7 @@ export function Install() {
   return (
     <>
       <button className="btn-alt" type="button" onClick={() => void go()}>
-        ثبّت على الموبايل
+        ثبّت
       </button>
       {sheet && (
         <div className="overlay" onClick={() => setSheet(false)}>

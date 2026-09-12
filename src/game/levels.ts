@@ -1,4 +1,6 @@
-import type { LevelDef, Night, NightId } from "./types";
+import type { Dir, LevelDef, Night, NightId } from "./types";
+
+const WINDS: Dir[] = ["left", "right", "up", "down"];
 
 export const DAYS = 30;
 export const HARAS = 10;
@@ -162,11 +164,12 @@ function buildLevels(): LevelDef[] {
         hara,
         name: `${arNum(day)} رمضان · ${HARA_NAMES[hara - 1]}`,
         night: theme,
-        blurb: "اسحب الفانوس جنب المربعات الغامقة",
+        blurb: "اسحب",
         size,
         colorCount,
         moves,
         dark,
+        wind: day <= 2 ? null : WINDS[(day + hara) % 4]!,
       });
     }
   }

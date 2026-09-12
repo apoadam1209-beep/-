@@ -71,6 +71,7 @@ export default function App() {
         key={levelId}
         levelId={levelId}
         muted={progress.muted}
+        stars={progress.stars}
         onMuted={(v) => setProgress((p) => ({ ...p, muted: v }))}
         onWin={(id, stars) =>
           setProgress((p) => {
@@ -84,6 +85,7 @@ export default function App() {
           })
         }
         onMenu={() => setScreen("menu")}
+        onNights={() => setScreen("nights")}
         onNext={(id) => start(id)}
       />
     );

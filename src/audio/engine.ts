@@ -203,18 +203,112 @@ export class AudioEngine {
   }
 
   moon() {
+    this.cannon();
+  }
+
+  daff() {
     void this.ensure().then((ctx) => {
-      if (!ctx || this.muted) return;
-      [392, 494, 587, 784].forEach((f, i) => {
-        const t = ctx.currentTime + i * 0.07;
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = "sine";
-        o.frequency.value = f;
-        this.env(g, t, 0.02, 0.4, 0.06);
-        this.out(o, g);
-        o.start(t);
-        o.stop(t + 0.42);
+      if (!ctx || !this.master || this.muted) return;
+      const t = ctx.currentTime;
+      const n = this.noise(ctx, 0.12);
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 280;
+      bp.Q.value = 2.2;
+      const g = ctx.createGain();
+      n.connect(bp);
+      bp.connect(g);
+      g.connect(this.master);
+      this.env(g, t, 0.002, 0.14, 0.16);
+      n.start(t);
+      n.stop(t + 0.14);
+      const o = ctx.createOscillator();
+      const og = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(70, t + 0.12);
+      this.env(og, t, 0.002, 0.16, 0.1);
+      this.out(o, og);
+      o.start(t);
+      o.stop(t + 0.18);
+    });
+  }
+
+  dynamite() {
+    void this.ensure().then((ctx) => {
+      if (!ctx || !this.master || this.muted) return;
+      const t = ctx.currentTime;
+      const fuse = this.noise(ctx, 0.16);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 2500;
+      const fg = ctx.createGain();
+      fuse.connect(hp);
+      hp.connect(fg);
+      fg.connect(this.master);
+      this.env(fg, t, 0.01, 0.16, 0.07);
+      fuse.start(t);
+      fuse.stop(t + 0.18);
+      const boomT = t + 0.14;
+      const n = this.noise(ctx, 0.35);
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(900, boomT);
+      lp.frequency.exponentialRampToValueAtTime(80, boomT + 0.3);
+      const g = ctx.createGain();
+      n.connect(lp);
+      lp.connect(g);
+      g.connect(this.master);
+      this.env(g, boomT, 0.004, 0.38, 0.22);
+      n.start(boomT);
+      n.stop(boomT + 0.4);
+      const o = ctx.createOscillator();
+      const og = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(70, boomT);
+      o.frequency.exponentialRampToValueAtTime(28, boomT + 0.32);
+      this.env(og, boomT, 0.004, 0.4, 0.18);
+      this.out(o, og);
+      o.start(boomT);
+      o.stop(boomT + 0.42);
+    });
+  }
+
+  cannon() {
+    void this.ensure().then((ctx) => {
+      if (!ctx || !this.master || this.muted) return;
+      const t = ctx.currentTime;
+      const n = this.noise(ctx, 0.55);
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(220, t);
+      lp.frequency.exponentialRampToValueAtTime(55, t + 0.5);
+      const g = ctx.createGain();
+      n.connect(lp);
+      lp.connect(g);
+      g.connect(this.master);
+      this.env(g, t, 0.006, 0.55, 0.28);
+      n.start(t);
+      n.stop(t + 0.56);
+      const o = ctx.createOscillator();
+      const og = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(48, t);
+      o.frequency.exponentialRampToValueAtTime(22, t + 0.5);
+      this.env(og, t, 0.008, 0.6, 0.22);
+      this.out(o, og);
+      o.start(t);
+      o.stop(t + 0.62);
+      [392, 415, 494].forEach((f, i) => {
+        const ot = t + 0.12 + i * 0.09;
+        const h = ctx.createOscillator();
+        const hg = ctx.createGain();
+        h.type = "sine";
+        h.frequency.value = f;
+        this.env(hg, ot, 0.02, 0.35, 0.045);
+        this.out(h, hg);
+        h.start(ot);
+        h.stop(ot + 0.38);
       });
     });
   }
@@ -323,17 +417,46 @@ export class AudioEngine {
       pg.connect(this.master);
       pad.start();
 
+      const hijaz = ctx.createOscillator();
+      const hg = ctx.createGain();
+      hijaz.type = "sine";
+      hijaz.frequency.value = 146.8;
+      hg.gain.value = 0.008;
+      hijaz.connect(hg);
+      hg.connect(this.master);
+      hijaz.start();
+
+      const crackle = () => {
+        if (this.muted || !this.ctx || !this.master) return;
+        const t = this.ctx.currentTime;
+        const n = this.noise(this.ctx, 0.08);
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = 1800;
+        const g = this.ctx.createGain();
+        n.connect(hp);
+        hp.connect(g);
+        g.connect(this.master);
+        this.env(g, t, 0.004, 0.08, 0.02);
+        n.start(t);
+        n.stop(t + 0.09);
+      };
+      const crackId = window.setInterval(crackle, 900 + Math.random() * 700);
+
       this.amb = {
         stop: () => {
           window.clearInterval(id);
+          window.clearInterval(crackId);
           try {
             windSrc.stop();
             pad.stop();
+            hijaz.stop();
           } catch {
             /* closed */
           }
           wg.disconnect();
           pg.disconnect();
+          hg.disconnect();
         },
       };
     });

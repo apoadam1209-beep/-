@@ -1,5 +1,5 @@
 export type ColorId = "ruby" | "emerald" | "gold" | "aqua" | "violet";
-export type Special = "none" | "lineH" | "lineV" | "burst" | "moon";
+export type Special = "none" | "dynamite" | "cannon" | "burst";
 export type NightId = "alley" | "square" | "roof" | "dawn";
 export type Status = "play" | "won" | "lost";
 export type Dir = "up" | "down" | "left" | "right";
@@ -10,6 +10,7 @@ export type SwapFx = {
   b: Pos;
   dir: Dir;
   mode: "swap" | "bounce";
+  steps: number;
 };
 
 export type DropFx = { id: number; dist: number };
@@ -40,6 +41,7 @@ export type LevelDef = {
   colorCount: number;
   moves: number;
   dark: string[];
+  wind: Dir | null;
 };
 
 export type Game = {
@@ -48,6 +50,9 @@ export type Game = {
   colors: ColorId[];
   grid: (Cell | null)[][];
   dark: number[][];
+  ghost: (ColorId | null)[][];
+  ghostAge: number[][];
+  wind: Dir | null;
   moves: number;
   maxMoves: number;
   score: number;

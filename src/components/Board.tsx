@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { LanternView } from "./Lantern";
-import { stepDir } from "../game/engine";
+import { COLOR_META, stepDir } from "../game/engine";
 import type { Dir, DropFx, Game, Pos, SwapFx } from "../game/types";
 import { cn } from "../utils/cn";
 
 type Props = {
   game: Game;
   burst: Pos[];
+  fire: Pos[];
   holding: Pos | null;
   swap: SwapFx | null;
   drops: DropFx[];
@@ -23,10 +24,10 @@ function same(a: Pos, b: Pos) {
 }
 
 function axisOf(dir: Dir): { sx: number; sy: number; rot: number } {
-  if (dir === "right") return { sx: 1, sy: 0, rot: 10 };
-  if (dir === "left") return { sx: -1, sy: 0, rot: -10 };
-  if (dir === "down") return { sx: 0, sy: 1, rot: 8 };
-  return { sx: 0, sy: -1, rot: -8 };
+  if (dir === "right") return { sx: 1, sy: 0, rot: 12 };
+  if (dir === "left") return { sx: -1, sy: 0, rot: -12 };
+  if (dir === "down") return { sx: 0, sy: 1, rot: 10 };
+  return { sx: 0, sy: -1, rot: -10 };
 }
 
 function opp(dir: Dir): Dir {
@@ -36,11 +37,12 @@ function opp(dir: Dir): Dir {
   return "left";
 }
 
-const THRESH = 22;
+const THRESH = 10;
 
-export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Props) {
+export function Board({ game, burst, fire, holding, swap, drops, spawns, onSwipe }: Props) {
   const n = game.size;
   const burstSet = new Set(burst.map(keyOf));
+  const fireSet = new Set(fire.map(keyOf));
   const hintSet = new Set(game.hint ? [keyOf(game.hint[0]), keyOf(game.hint[1])] : []);
   const dropMap = new Map(drops.map((d) => [d.id, d.dist]));
   const spawnSet = new Set(spawns);
@@ -77,19 +79,22 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
     const rawX = e.clientX - d.x;
     const rawY = e.clientY - d.y;
     const axis: "h" | "v" | null =
-      Math.hypot(rawX, rawY) < 8 ? null : Math.abs(rawX) > Math.abs(rawY) ? "h" : "v";
+      Math.hypot(rawX, rawY) < 6 ? null : Math.abs(rawX) > Math.abs(rawY) ? "h" : "v";
+    const dir = dirOf(rawX, rawY);
+    const span = game.wind === dir ? 2 : 1;
+    const lim = d.w * span;
     let dx = rawX;
     let dy = rawY;
     if (axis === "h") {
       dy = 0;
-      dx = Math.max(-d.w, Math.min(d.w, dx));
+      dx = Math.max(-lim, Math.min(lim, dx));
     } else if (axis === "v") {
       dx = 0;
-      dy = Math.max(-d.w, Math.min(d.w, dy));
+      dy = Math.max(-lim, Math.min(lim, dy));
     }
     setPull({ pos: d.pos, dx, dy, axis });
     if (Math.hypot(rawX, rawY) < THRESH) return;
-    const started = onSwipe(d.pos, dirOf(rawX, rawY));
+    const started = onSwipe(d.pos, dir);
     if (!started) {
       setPull(null);
       drag.current = null;
@@ -111,20 +116,25 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
       const onB = same({ r, c }, swap.b);
       if (onA || onB) {
         const ax = axisOf(onA ? swap.dir : opp(swap.dir));
-        style["--sx"] = String(ax.sx);
-        style["--sy"] = String(ax.sy);
+        const st = swap.steps;
+        style["--sx"] = String(ax.sx * st);
+        style["--sy"] = String(ax.sy * st);
         style["--rot"] = String(ax.rot);
         style.zIndex = onA ? 9 : 8;
       }
     }
     if (pull && same({ r, c }, pull.pos) && !swap) {
-      style.transform = `translate(${pull.dx}px, ${pull.dy}px) scale(1.16)`;
+      style.transform = `translate(${pull.dx}px, ${pull.dy}px) scale(1.18)`;
       style.zIndex = 9;
       style.transition = "none";
     } else if (pull?.axis && !swap) {
-      const nb = stepDir(pull.pos, pull.axis === "h" ? (pull.dx >= 0 ? "right" : "left") : pull.dy >= 0 ? "down" : "up");
+      const nb = stepDir(
+        pull.pos,
+        pull.axis === "h" ? (pull.dx >= 0 ? "right" : "left") : pull.dy >= 0 ? "down" : "up",
+        1
+      );
       if (same({ r, c }, nb) && (pull.dx !== 0 || pull.dy !== 0)) {
-        style.transform = `translate(${-pull.dx}px, ${-pull.dy}px)`;
+        style.transform = `translate(${-pull.dx * 0.55}px, ${-pull.dy * 0.55}px)`;
         style.zIndex = 8;
         style.transition = "none";
       }
@@ -139,7 +149,7 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
 
   return (
     <div
-      className="board-frame"
+      className={cn("board-frame", game.wind && `wind-${game.wind}`)}
       style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}
       dir="ltr"
     >
@@ -148,6 +158,7 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
           const pos = { r, c };
           const k = keyOf(pos);
           const dark = game.dark[r]![c]!;
+          const ghost = game.ghost[r]![c];
           const isCat = game.cat?.r === r && game.cat?.c === c;
           const held = holding?.r === r && holding?.c === c;
           const dragging = !!(pull && same(pos, pull.pos) && !swap);
@@ -156,19 +167,22 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
           const popping = burstSet.has(k);
           const dropping = !!(cell && dropMap.has(cell.id));
           const spawning = !!(cell && spawnSet.has(cell.id));
+          const ghostHex = ghost ? COLOR_META[ghost].hex : undefined;
           return (
             <button
               key={`${r}-${c}`}
               type="button"
               className={cn(
                 "cell",
-                dark > 0 && "is-dark",
+                dark > 0 ? "is-dark" : "is-lit",
                 dark > 1 && "is-heavy",
                 popping && "is-burst",
                 isCat && "is-cat",
+                ghost && "is-ghost",
                 (held || dragging || swapping || dropping) && "is-hold",
                 lead && "is-lead"
               )}
+              style={ghostHex ? ({ ["--ghost" as string]: ghostHex } as CSSProperties) : undefined}
               onPointerDown={(e) => {
                 e.preventDefault();
                 onDown(e, pos);
@@ -177,8 +191,9 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
               onPointerUp={onUp}
               onPointerCancel={onUp}
             >
-              {dark > 0 && <span className="smoke" data-n={dark} />}
+              <span className="cell-pad" />
               {dark > 0 && <span className="target-ring" />}
+              {ghost && <span className="ghost-glow" />}
               {cell && (
                 <div
                   className={cn(
@@ -196,8 +211,12 @@ export function Board({ game, burst, holding, swap, drops, spawns, onSwipe }: Pr
                     cell={cell}
                     selected={held || dragging}
                     hint={hintSet.has(k)}
+                    wind={game.wind}
                   />
                 </div>
+              )}
+              {fireSet.has(k) && (
+                <img className="fx-fire" src="art/fireburst.png" alt="" draggable={false} />
               )}
               {isCat && <span className="cat">🐱</span>}
             </button>

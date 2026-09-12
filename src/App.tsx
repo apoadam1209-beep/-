@@ -6,7 +6,7 @@ import { Nights } from "./components/Nights";
 import { Play } from "./components/Play";
 import { LEVELS } from "./game/levels";
 
-const KEY = "ramadan-nur-v1";
+const KEY = "ramadan-nur-v2";
 
 export type Progress = {
   unlocked: number;

@@ -1,4 +1,4 @@
-import { LEVELS, NIGHTS } from "../game/levels";
+import { DAYS, HARAS, LEVELS } from "../game/levels";
 import { Install } from "./Install";
 
 type Props = {
@@ -17,18 +17,20 @@ export function Menu({ unlocked, stars, onPlay, onNights, onHowTo }: Props) {
       <div className="sky" style={{ backgroundImage: "url(art/night-alley.jpg)" }} />
       <div className="vignette" />
       <div className="menu-card">
-        <p className="kicker">ليلة في الحارة</p>
+        <p className="kicker">٣٠ ليلة · ١٠ حارات</p>
         <h1>ضوء رمضان</h1>
         <p className="lead">
-          طابق الفوانيس عشان النور يأكل العتمة. الشارع لازم يبقى صاحي قبل الفجر.
+          اسحب الفانوس، طابق ثلاثة نفس اللون جنب الإطار الذهبي. العتمة تروح والنور يفضل.
         </p>
-        <div className="star-total">★ {totalStars} / {LEVELS.length * 3}</div>
+        <div className="star-total">
+          ★ {totalStars} / {DAYS * HARAS * 3}
+        </div>
         <div className="col-btns">
           <button className="btn-main" onClick={() => onPlay(continueId)}>
             {unlocked > 1 ? "كمّل الليلة" : "أول فتيل"}
           </button>
           <button className="btn-alt" onClick={onNights}>
-            الليالي — {NIGHTS.length} حارات
+            رزنامة رمضان
           </button>
           <button className="btn-ghost" onClick={onHowTo}>
             إزاي تلعب؟

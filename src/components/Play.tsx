@@ -12,12 +12,14 @@ import {
   findHint,
   finishCheck,
   matchCells,
+  remainingCells,
   remainingDark,
+  stepDir,
   tryActivateMoon,
   undoSwap,
 } from "../game/engine";
-import { LEVELS, nightOf } from "../game/levels";
-import type { Game, Pos } from "../game/types";
+import { HARAS, LEVELS, nightOf } from "../game/levels";
+import type { Dir, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -42,15 +44,18 @@ export function Play({
   const pack = useRef(createGame(LEVELS[levelId - 1]!));
   const [game, setGame] = useState<Game>(pack.current.game);
   const [burst, setBurst] = useState<Pos[]>([]);
+  const [holding, setHolding] = useState<Pos | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const night = nightOf(levelId);
+  const leftCells = remainingCells(game);
 
   useEffect(() => {
     const p = createGame(LEVELS[levelId - 1]!);
     pack.current = p;
     setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
     setBurst([]);
+    setHolding(null);
     setBusy(false);
     busyRef.current = false;
     void audio.ensure().then(() => audio.startNight());
@@ -76,12 +81,7 @@ export function Play({
       grid: g.grid.map((row) => row.slice()),
       dark: g.dark.map((row) => row.slice()),
       selected: g.selected ? { ...g.selected } : null,
-      hint: g.hint
-        ? [
-            { ...g.hint[0] },
-            { ...g.hint[1] },
-          ]
-        : null,
+      hint: g.hint ? [{ ...g.hint[0] }, { ...g.hint[1] }] : null,
       cat: g.cat ? { ...g.cat } : null,
     });
   }
@@ -103,13 +103,13 @@ export function Play({
       if (ev.specials.includes("moon")) audio.moon();
       audio.light();
       snap();
-      await wait(320);
+      await wait(300);
       applyGravity(g);
       snap();
-      await wait(200);
+      await wait(180);
       applyFill(g, rng);
       snap();
-      await wait(140);
+      await wait(120);
       setBurst([]);
     }
     ensureMoves(g, rng);
@@ -121,8 +121,13 @@ export function Play({
     if (busyRef.current) return;
     const g = pack.current.game;
     if (!canSwap(g, a, b)) {
+      doSwap(g, a, b);
+      snap();
       audio.grab();
+      await wait(160);
+      undoSwap(g, a, b);
       g.selected = null;
+      setHolding(null);
       snap();
       return;
     }
@@ -130,17 +135,18 @@ export function Play({
     setBusy(true);
     g.selected = null;
     g.hint = null;
+    setHolding(null);
     doSwap(g, a, b);
     audio.swap();
     snap();
-    await wait(140);
+    await wait(120);
     const moon = tryActivateMoon(g, a, b);
     if (moon) {
       setBurst(moon.cells);
       audio.moon();
       audio.light();
       snap();
-      await wait(360);
+      await wait(320);
       applyGravity(g);
       applyFill(g, pack.current.rng);
       setBurst([]);
@@ -157,52 +163,29 @@ export function Play({
     setBusy(false);
   }
 
-  function onCell(pos: Pos) {
+  function onSwipe(from: Pos, dir: Dir) {
     if (busyRef.current) return;
     void audio.ensure();
     const g = pack.current.game;
     if (g.status !== "play") return;
-    if (!g.selected) {
-      g.selected = pos;
-      audio.grab();
-      snap();
+    const to = stepDir(from, dir);
+    if (to.r < 0 || to.c < 0 || to.r >= g.size || to.c >= g.size) return;
+    if (
+      g.cat &&
+      ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
+    )
       return;
-    }
-    if (g.selected.r === pos.r && g.selected.c === pos.c) {
-      g.selected = null;
-      snap();
-      return;
-    }
-    const a = g.selected;
-    if (Math.abs(a.r - pos.r) + Math.abs(a.c - pos.c) !== 1) {
-      g.selected = pos;
-      audio.grab();
-      snap();
-      return;
-    }
-    if (!canSwap(g, a, pos)) {
-      doSwap(g, a, pos);
-      snap();
-      window.setTimeout(() => {
-        undoSwap(g, a, pos);
-        g.selected = null;
-        snap();
-      }, 180);
-      audio.grab();
-      return;
-    }
-    void performSwap(a, pos);
+    setHolding(from);
+    void performSwap(from, to);
   }
 
   const dawn = 1 - game.moves / Math.max(1, game.maxMoves);
   const over = game.status !== "play";
+  const lastInNight = game.level.hara === HARAS;
 
   return (
     <div className="play-root">
-      <div
-        className="sky"
-        style={{ backgroundImage: `url(${night.art})` }}
-      />
+      <div className="sky" style={{ backgroundImage: `url(${night.art})` }} />
       <div
         className="dawn"
         style={{
@@ -217,9 +200,9 @@ export function Play({
           خروج
         </button>
         <div className="hud-mid">
-          <div className="title-sm">{game.level.name}</div>
+          <div className="title-sm">{night.name}</div>
           <div className="sub">
-            {night.name} · {game.level.blurb}
+            الحارة {game.level.hara}/{HARAS} · {game.level.name.split("·")[1]}
           </div>
         </div>
         <button
@@ -232,6 +215,14 @@ export function Play({
           {muted ? "صوت" : "كتم"}
         </button>
       </header>
+
+      <div className="mission">
+        <strong>نوّر العتمة</strong>
+        <span>
+          اسحب فانوسًا جنب المربعات اللي ليها إطار ذهبي · فاضل{" "}
+          <b>{leftCells}</b> مربع
+        </span>
+      </div>
 
       <div className="meters">
         <div className="meter">
@@ -251,10 +242,10 @@ export function Play({
       </div>
 
       <div className="board-wrap">
-        <Board game={game} burst={burst} onCell={onCell} />
+        <Board game={game} burst={burst} holding={holding} onSwipe={onSwipe} />
       </div>
 
-      <p className="hint-line">اختر فانوسين متجاورين ليتبدّلوا · طابق ثلاثة جنب العتمة</p>
+      <p className="hint-line">اسحب الفانوس لأي اتجاه · طابق ثلاثة جنب الإطار الذهبي</p>
 
       {over && (
         <div className="overlay">
@@ -262,18 +253,22 @@ export function Play({
             {game.status === "won" ? (
               <>
                 <div className="emoji">🌕</div>
-                <h2>الشارع اتْنوَّر</h2>
+                <h2>{lastInNight ? "الليلة اكتملت" : "الحارة اتْنوَّرت"}</h2>
                 <div className="stars">
                   {"★".repeat(game.stars)}
                   {"☆".repeat(3 - game.stars)}
                 </div>
-                <p>اتفضّل الفجر… الحي شايف طريقه.</p>
+                <p>
+                  {lastInNight
+                    ? "عشر حارات في النور. يلا على الليلة الجاية."
+                    : `الحارة ${game.level.hara} من ${HARAS} خلصت.`}
+                </p>
               </>
             ) : (
               <>
                 <div className="emoji">🌑</div>
-                <h2>الأذان سبقك</h2>
-                <p>العتمة لسه ماسكة الزقاق. جرّب حركة أقرب للنور.</p>
+                <h2>الحركات خلصت</h2>
+                <p>لسه فيه مربعات غامقة. اسحب جنب الإطار الذهبي.</p>
               </>
             )}
             <div className="col-btns">
@@ -284,17 +279,18 @@ export function Play({
                   pack.current = p;
                   setGame({ ...p.game, grid: p.game.grid.map((r) => r.slice()) });
                   setBurst([]);
+                  setHolding(null);
                 }}
               >
                 تاني
               </button>
               {game.status === "won" && levelId < LEVELS.length && (
                 <button className="btn-alt" onClick={() => onNext(levelId + 1)}>
-                  الليلة اللي بعدها
+                  {lastInNight ? "الليلة اللي بعدها" : "الحارة اللي بعدها"}
                 </button>
               )}
               <button className="btn-ghost" onClick={onMenu}>
-                الليالي
+                الرزنامة
               </button>
             </div>
           </div>

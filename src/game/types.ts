@@ -2,6 +2,7 @@ export type ColorId = "ruby" | "emerald" | "gold" | "aqua" | "violet";
 export type Special = "none" | "lineH" | "lineV" | "burst" | "moon";
 export type NightId = "alley" | "square" | "roof" | "dawn";
 export type Status = "play" | "won" | "lost";
+export type Dir = "up" | "down" | "left" | "right";
 
 export type Pos = { r: number; c: number };
 
@@ -13,6 +14,7 @@ export type Cell = {
 
 export type Night = {
   id: NightId;
+  day: number;
   name: string;
   from: number;
   to: number;
@@ -21,6 +23,8 @@ export type Night = {
 
 export type LevelDef = {
   id: number;
+  day: number;
+  hara: number;
   name: string;
   night: NightId;
   blurb: string;

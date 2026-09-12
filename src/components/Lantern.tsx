@@ -21,11 +21,12 @@ export function LanternView({
   dim?: boolean;
 }) {
   const meta = COLOR_META[cell.color];
-  const delay = `${(cell.id % 7) * 0.37}s`;
+  const delay = `${(cell.id % 7) * 0.31}s`;
   return (
     <div
       className={cn(
         "lantern",
+        `c-${cell.color}`,
         selected && "is-selected",
         hint && "is-hint",
         dim && "is-dim",
@@ -33,17 +34,19 @@ export function LanternView({
       )}
       style={{
         ["--glow" as string]: meta.hex,
+        ["--deep" as string]: meta.deep,
         ["--swing-delay" as string]: delay,
       }}
     >
-      <span className="lantern-aura" />
-      <span className="lantern-well" />
-      <img className="lantern-photo" src={meta.art} alt="" draggable={false} />
-      <span className="lantern-glass" />
-      <span className="lantern-flame" />
-      {cell.special !== "none" && (
-        <span className="badge">{BADGE[cell.special]}</span>
-      )}
+      <span className="fn-hook" />
+      <span className="fn-cap" />
+      <span className="fn-body">
+        <span className="fn-gem" />
+        <span className="fn-flame" />
+        <span className="fn-shine" />
+      </span>
+      <span className="fn-base" />
+      {cell.special !== "none" && <span className="badge">{BADGE[cell.special]}</span>}
     </div>
   );
 }

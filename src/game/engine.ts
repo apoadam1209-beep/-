@@ -1,16 +1,16 @@
-import type { Cell, ColorId, Game, LevelDef, Pos, Special } from "./types";
+import type { Cell, ColorId, Dir, Game, LevelDef, Pos, Special } from "./types";
 
 export const ALL_COLORS: ColorId[] = ["ruby", "emerald", "gold", "aqua", "violet"];
 
 export const COLOR_META: Record<
   ColorId,
-  { name: string; hex: string; art: string }
+  { name: string; hex: string; deep: string }
 > = {
-  ruby: { name: "ياقوت", hex: "#ff4b4b", art: "art/glass-ruby.png" },
-  emerald: { name: "زمرد", hex: "#3dcc7a", art: "art/glass-emerald.png" },
-  gold: { name: "ذهب", hex: "#f5c542", art: "art/glass-gold.png" },
-  aqua: { name: "فيروز", hex: "#3ec6d8", art: "art/glass-aqua.png" },
-  violet: { name: "بنفسج", hex: "#b56bff", art: "art/glass-violet.png" },
+  ruby: { name: "أحمر", hex: "#ff2a2a", deep: "#8a0000" },
+  emerald: { name: "أخضر", hex: "#00e06a", deep: "#006b32" },
+  gold: { name: "ذهبي", hex: "#ffd000", deep: "#9a6a00" },
+  aqua: { name: "أزرق", hex: "#00d0f0", deep: "#006a88" },
+  violet: { name: "بنفسج", hex: "#c84bff", deep: "#5a0088" },
 };
 
 let nid = 1;
@@ -469,7 +469,7 @@ export function createGame(level: LevelDef): { game: Game; rng: () => number } {
     stars: 0,
     need: needOf(dark),
     lit: 0,
-    cat: level.id >= 12 ? { r: 0, c: Math.floor(level.size / 2) } : null,
+    cat: level.day >= 10 && level.hara >= 4 ? { r: 0, c: Math.floor(level.size / 2) } : null,
   };
   ensureMoves(game, rng);
   return { game, rng };
@@ -490,4 +490,17 @@ export function selectOrSwap(
 
 export function remainingDark(g: Game) {
   return needOf(g.dark);
+}
+
+export function remainingCells(g: Game) {
+  let n = 0;
+  for (const row of g.dark) for (const v of row) if (v > 0) n++;
+  return n;
+}
+
+export function stepDir(from: Pos, dir: Dir): Pos {
+  if (dir === "up") return { r: from.r - 1, c: from.c };
+  if (dir === "down") return { r: from.r + 1, c: from.c };
+  if (dir === "left") return { r: from.r, c: from.c - 1 };
+  return { r: from.r, c: from.c + 1 };
 }

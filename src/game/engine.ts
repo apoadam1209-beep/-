@@ -468,7 +468,10 @@ export function createGame(
     for (const gl of goals) gl.need = Math.floor(gl.need * 1.15) + 1;
   }
 
-  const colors = ALL_COLORS.slice(0, colorCount);
+  const needed = [...new Set(goals.map((gl) => gl.color))];
+  const extras = ALL_COLORS.filter((c) => !needed.includes(c));
+  const nColors = Math.max(colorCount, needed.length);
+  const colors = [...needed, ...extras].slice(0, nColors);
   const grid = fillWithoutMatch(level.size, colors, rng);
   const game: Game = {
     level: { ...level, goals, moves },

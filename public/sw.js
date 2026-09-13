@@ -1,4 +1,4 @@
-const VERSION = "yalla-fruit-v1";
+const VERSION = "yalla-fruit-v2";
 const SHELL = `${VERSION}-shell`;
 
 const PRECACHE = [

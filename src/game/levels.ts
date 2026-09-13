@@ -75,13 +75,13 @@ function paintIce(n: number, menu: number, order: number, rng: () => number): st
   return g.map((row) => row.map((v) => (v === 0 ? "." : String(v))).join(""));
 }
 
-function goalsOf(kind: GoalKind, menu: number, order: number, rng: () => number): Goal[] {
-  const pick = () => FRUIT[Math.floor(rng() * FRUIT.length)]!;
+function goalsOf(kind: GoalKind, menu: number, order: number, rng: () => number, pool: ColorId[]): Goal[] {
+  const pick = () => pool[Math.floor(rng() * pool.length)]!;
   const a = pick();
   let b = pick();
-  while (b === a) b = pick();
+  while (b === a && pool.length > 1) b = pick();
   let c = pick();
-  while (c === a || c === b) c = pick();
+  while ((c === a || c === b) && pool.length > 2) c = pick();
   if (kind === "juice") {
     return [{ color: a, need: 10 + Math.floor(menu * 0.7) + order }];
   }
@@ -114,8 +114,9 @@ function buildLevels(): LevelDef[] {
       const rng = mulberry(menu * 1009 + order * 17 + 3);
       const size = menu < 4 && order < 5 ? 7 : 8;
       const colorCount = menu < 3 ? 4 : 5;
+      const pool = FRUIT.slice(0, colorCount);
       const kind: GoalKind = (menu + order) % 3 === 1 ? "juice" : (menu + order) % 3 === 2 ? "duo" : "salad";
-      const goals = goalsOf(kind, menu, order, rng);
+      const goals = goalsOf(kind, menu, order, rng, pool);
       const ice = paintIce(size, menu, order, rng);
       const iceN = ice.join("").replace(/\./g, "").length;
       const need = goals.reduce((a, g) => a + g.need, 0);

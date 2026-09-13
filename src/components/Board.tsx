@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { FruitView } from "./Fruit";
-import { stepDir } from "../game/engine";
+import { COLOR_META, stepDir } from "../game/engine";
 import type { Cell, Dir, DropFx, Game, Pos } from "../game/types";
 import { cn } from "../utils/cn";
 
@@ -222,7 +222,12 @@ export function Board({
               >
                 <span className="cell-pad" />
                 {ice > 0 && <img className="ice-layer" data-n={ice} src="art/ice.png" alt="" draggable={false} />}
-                {fireSet.has(k) && <span className="fx-splash" />}
+                {fireSet.has(k) && (
+                  <span
+                    className="fx-splash"
+                    style={{ ["--glow" as string]: COLOR_META[game.grid[r]![c]?.color ?? "mango"].hex }}
+                  />
+                )}
               </button>
             );
           })

@@ -5,6 +5,7 @@ import {
   applyClear,
   applyFill,
   applyGravity,
+  explodeCells,
   canSwap,
   COLOR_META,
   COMBO_NAME,
@@ -108,15 +109,13 @@ export function Play({
   }
 
   function bang(specials: string[], cells: Pos[]) {
-    if (specials.includes("blend") || specials.includes("press") || specials.includes("burst")) {
-      setFire(cells);
-    }
+    if (specials.includes("juice") || specials.includes("prism")) setFire(cells);
   }
 
   async function boomSound(specials: string[], cracked: boolean) {
     await afterPaint();
-    if (specials.includes("press")) audio.press();
-    else if (specials.includes("blend") || specials.includes("burst")) audio.blend();
+    if (specials.includes("prism")) audio.prism();
+    else if (specials.includes("juice")) audio.juice();
     if (cracked) audio.ice();
   }
 
@@ -144,8 +143,8 @@ export function Play({
       setBurst(cells);
       const four = runs.find((r) => r.cells.length === 4);
       const five = runs.find((r) => r.cells.length >= 5);
-      if (five) setToast("عصّارة");
-      else if (four) setToast("خلاط");
+      if (five) setToast("طيف");
+      else if (four) setToast("عصير");
       else if (g.combo >= 2) setToast(COMBO_NAME[Math.min(g.combo, COMBO_NAME.length - 1)] ?? "يا سلام");
       snap();
       await afterPaint();
@@ -155,10 +154,21 @@ export function Play({
       await wait(POP_MS - SEE_MS);
       const ev = applyClear(g, cells, origin, runs);
       origin = null;
-      bang(ev.specials, ev.cells);
+      bang(ev.specials, ev.painted.length ? ev.painted : ev.cells);
+      if (ev.painted.length) setBurst([]);
       snap();
       await boomSound(ev.specials, ev.cracked);
-      audio.light();
+      if (ev.painted.length) {
+        await wait(280);
+        explodeCells(g, ev.painted);
+        setBurst(ev.painted);
+        snap();
+        await afterPaint();
+        audio.light();
+        await wait(POP_MS);
+      } else {
+        audio.light();
+      }
       await fallAndFill();
     }
     setToast(null);
@@ -189,6 +199,7 @@ export function Play({
     audio.swap();
     const sa = g.grid[a.r]![a.c]?.special ?? "none";
     const sb = g.grid[b.r]![b.c]?.special ?? "none";
+    let usedSpecial = false;
     if (sa !== "none" || sb !== "none") {
       setBurst([a, b]);
       snap();
@@ -198,14 +209,26 @@ export function Play({
       await wait(POP_MS - SEE_MS);
       const boom = tryActivateSpecial(g, a, b);
       if (boom) {
-        bang([boom.special], boom.cells);
+        usedSpecial = true;
+        bang([boom.special], boom.painted.length ? boom.painted : boom.cells);
+        if (boom.painted.length) setBurst([]);
         snap();
         await boomSound([boom.special], boom.cracked);
-        audio.light();
+        if (boom.painted.length) {
+          await wait(280);
+          explodeCells(g, boom.painted);
+          setBurst(boom.painted);
+          snap();
+          await afterPaint();
+          audio.light();
+          await wait(POP_MS);
+        } else {
+          audio.light();
+        }
       }
       await fallAndFill();
     }
-    await resolveBoard(a);
+    await resolveBoard(usedSpecial ? null : a);
     afterTurn(g);
     snap();
     if (g.status === "won") {
@@ -298,10 +321,24 @@ export function Play({
         <div className="overlay">
           <div className="panel">
             {game.status === "won" ? (
-              <div className="stars">
-                {"★".repeat(game.stars)}
-                {"☆".repeat(3 - game.stars)}
-              </div>
+              <>
+                <div className={`serve-scene ${game.level.kind}`}>
+                  {game.level.goals.map((gl) => (
+                    <div
+                      key={gl.color}
+                      className={game.level.kind === "salad" ? "serve-bowl" : "serve-glass"}
+                      style={{ ["--juice" as string]: COLOR_META[gl.color].hex }}
+                    >
+                      <span className="serve-fill" />
+                      <img src={COLOR_META[gl.color].art} alt="" />
+                    </div>
+                  ))}
+                </div>
+                <div className="stars">
+                  {"★".repeat(game.stars)}
+                  {"☆".repeat(3 - game.stars)}
+                </div>
+              </>
             ) : (
               <div className="emoji">🥤</div>
             )}

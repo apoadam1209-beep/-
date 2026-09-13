@@ -1,5 +1,15 @@
-export type ColorId = "berry" | "kiwi" | "mango" | "blue" | "grape";
-export type Special = "none" | "blend" | "press" | "burst";
+export type ColorId =
+  | "berry"
+  | "kiwi"
+  | "mango"
+  | "blue"
+  | "grape"
+  | "orange"
+  | "melon"
+  | "banana"
+  | "peach"
+  | "pine";
+export type Special = "none" | "juice" | "prism";
 export type ThemeId = "juice" | "market" | "kitchen";
 export type GoalKind = "juice" | "duo" | "salad";
 export type Status = "play" | "won" | "lost";

@@ -8,13 +8,29 @@ export function arNum(n: number) {
   return String(n).replace(/\d/g, (d) => AR[Number(d)]!);
 }
 
-const FRUIT: ColorId[] = ["berry", "kiwi", "mango", "blue", "grape"];
+const FRUIT: ColorId[] = [
+  "berry",
+  "kiwi",
+  "mango",
+  "blue",
+  "grape",
+  "orange",
+  "melon",
+  "banana",
+  "peach",
+  "pine",
+];
 const FRUIT_AR: Record<ColorId, string> = {
   berry: "فراولة",
   kiwi: "كيوي",
   mango: "مانجو",
   blue: "توت",
   grape: "عنب",
+  orange: "برتقال",
+  melon: "بطيخ",
+  banana: "موز",
+  peach: "خوخ",
+  pine: "أناناس",
 };
 
 const ART: Record<ThemeId, string> = {
@@ -113,7 +129,7 @@ function buildLevels(): LevelDef[] {
       const id = (menu - 1) * ORDERS + order;
       const rng = mulberry(menu * 1009 + order * 17 + 3);
       const size = menu < 4 && order < 5 ? 7 : 8;
-      const colorCount = menu < 3 ? 4 : 5;
+      const colorCount = menu < 4 ? 5 : menu < 10 ? 6 : menu < 16 ? 7 : menu < 22 ? 8 : 10;
       const pool = FRUIT.slice(0, colorCount);
       const kind: GoalKind = (menu + order) % 3 === 1 ? "juice" : (menu + order) % 3 === 2 ? "duo" : "salad";
       const goals = goalsOf(kind, menu, order, rng, pool);

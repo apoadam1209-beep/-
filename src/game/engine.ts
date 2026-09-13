@@ -1,6 +1,17 @@
 import type { Cell, ColorId, Difficulty, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
 
-export const ALL_COLORS: ColorId[] = ["berry", "kiwi", "mango", "blue", "grape"];
+export const ALL_COLORS: ColorId[] = [
+  "berry",
+  "kiwi",
+  "mango",
+  "blue",
+  "grape",
+  "orange",
+  "melon",
+  "banana",
+  "peach",
+  "pine",
+];
 
 export const COLOR_META: Record<
   ColorId,
@@ -11,6 +22,11 @@ export const COLOR_META: Record<
   mango: { name: "مانجو", hex: "#ffb000", deep: "#c46a00", art: "art/fruit-mango.png" },
   blue: { name: "توت", hex: "#4a7cff", deep: "#1a3a9a", art: "art/fruit-blue.png" },
   grape: { name: "عنب", hex: "#c44bff", deep: "#6a0088", art: "art/fruit-grape.png" },
+  orange: { name: "برتقال", hex: "#ff7a18", deep: "#b34500", art: "art/fruit-orange.png" },
+  melon: { name: "بطيخ", hex: "#ff4a6a", deep: "#9a1028", art: "art/fruit-melon.png" },
+  banana: { name: "موز", hex: "#ffe14a", deep: "#c4a000", art: "art/fruit-banana.png" },
+  peach: { name: "خوخ", hex: "#ff8a6a", deep: "#c44a38", art: "art/fruit-peach.png" },
+  pine: { name: "أناناس", hex: "#e6c84a", deep: "#8a7a10", art: "art/fruit-pine.png" },
 };
 
 let nid = 1;
@@ -42,7 +58,9 @@ function iceNeed(ice: number[][]) {
 }
 
 function emptyCollected(): Record<ColorId, number> {
-  return { berry: 0, kiwi: 0, mango: 0, blue: 0, grape: 0 };
+  const o = {} as Record<ColorId, number>;
+  for (const c of ALL_COLORS) o[c] = 0;
+  return o;
 }
 
 function makeCell(color: ColorId, special: Special = "none"): Cell {
@@ -201,14 +219,36 @@ function crackIce(g: Game, cells: Pos[], power = 1) {
   }
 }
 
-function blastArea(g: Game, p: Pos, add: (q: Pos) => void, special: Special) {
-  if (special === "press") {
-    for (let c = 0; c < g.size; c++) add({ r: p.r, c });
-    for (let r = 0; r < g.size; r++) add({ r, c: p.c });
-    return;
+export function paintCross(g: Game, origin: Pos, color: ColorId): Pos[] {
+  const out: Pos[] = [];
+  const seen = new Set<string>();
+  const paint = (p: Pos) => {
+    const k = `${p.r},${p.c}`;
+    if (seen.has(k) || !inb(g, p.r, p.c)) return;
+    const cell = g.grid[p.r]![p.c];
+    if (!cell || cell.special === "prism") return;
+    seen.add(k);
+    cell.color = color;
+    cell.special = "none";
+    out.push(p);
+  };
+  for (let c = 0; c < g.size; c++) paint({ r: origin.r, c });
+  for (let r = 0; r < g.size; r++) paint({ r, c: origin.c });
+  crackIce(g, out, 1);
+  return out;
+}
+
+export function wipeColor(g: Game, color: ColorId): Pos[] {
+  const cells: Pos[] = [];
+  for (let r = 0; r < g.size; r++) {
+    for (let c = 0; c < g.size; c++) {
+      if (g.grid[r]![c]?.color === color) cells.push({ r, c });
+    }
   }
-  for (let dr = -1; dr <= 1; dr++)
-    for (let dc = -1; dc <= 1; dc++) add({ r: p.r + dr, c: p.c + dc });
+  tally(g, cells);
+  crackIce(g, cells, 1);
+  for (const p of cells) g.grid[p.r]![p.c] = null;
+  return cells;
 }
 
 function triggerSpecials(g: Game, cells: Pos[]): Pos[] {
@@ -221,17 +261,13 @@ function triggerSpecials(g: Game, cells: Pos[]): Pos[] {
     extra.push(p);
   };
   for (const p of cells) add(p);
-  for (const p of cells) {
-    const cell = g.grid[p.r]![p.c];
-    if (!cell || cell.special === "none") continue;
-    blastArea(g, p, add, cell.special);
-  }
   return extra;
 }
 
-function spawnSpecial(g: Game, runs: Run[], origin: Pos | null) {
-  if (!origin) return;
+function spawnSpecial(g: Game, runs: Run[], origin: Pos | null): Special {
+  if (!origin) return "none";
   const five = runs.find((r) => r.cells.length >= 5);
+  const four = runs.find((r) => r.cells.length === 4);
   const cross = (() => {
     const map = new Map<string, number>();
     for (const run of runs)
@@ -239,22 +275,16 @@ function spawnSpecial(g: Game, runs: Run[], origin: Pos | null) {
         const k = `${p.r},${p.c}`;
         map.set(k, (map.get(k) ?? 0) + 1);
       }
-    for (const [k, n] of map)
-      if (n >= 2) {
-        const [r, c] = k.split(",").map(Number);
-        return { r: r!, c: c! };
-      }
-    return null;
+    return [...map.values()].some((n) => n >= 2);
   })();
-  const four = runs.find((r) => r.cells.length === 4);
-  let special: Special = "none";
-  if (five) special = "press";
-  else if (cross) special = "burst";
-  else if (four) special = "blend";
-  if (special === "none") return;
-  const place = inb(g, origin.r, origin.c) ? origin : runs[0]!.cells[0]!;
-  const color = g.grid[place.r]![place.c]?.color ?? five?.color ?? four?.color ?? "mango";
-  g.grid[place.r]![place.c] = makeCell(color, special);
+  if (five) {
+    const place = inb(g, origin.r, origin.c) ? origin : five.cells[0]!;
+    const color = g.grid[place.r]![place.c]?.color ?? five.color;
+    g.grid[place.r]![place.c] = makeCell(color, "prism");
+    return "prism";
+  }
+  if (four || cross) return "juice";
+  return "none";
 }
 
 function tally(g: Game, cells: Pos[]) {
@@ -269,7 +299,7 @@ export function applyClear(
   cells: Pos[],
   origin: Pos | null,
   runs: Run[]
-): { kind: "clear"; cells: Pos[]; specials: Special[]; cracked: boolean } {
+): { kind: "clear"; cells: Pos[]; specials: Special[]; cracked: boolean; painted: Pos[] } {
   const specials: Special[] = [];
   for (const p of cells) {
     const sp = g.grid[p.r]![p.c]?.special;
@@ -277,27 +307,47 @@ export function applyClear(
   }
   const blown = triggerSpecials(g, cells);
   const iceBefore = iceNeed(g.ice);
-  const power = specials.some((s) => s === "blend" || s === "press") ? 2 : 1;
-  tally(g, blown);
-  crackIce(g, blown, power);
-  const keep = new Set<string>();
-  if (origin) {
-    const five = runs.find((r) => r.cells.length >= 5);
-    const four = runs.find((r) => r.cells.length === 4);
-    const map = new Map<string, number>();
-    for (const run of runs)
-      for (const p of run.cells) map.set(`${p.r},${p.c}`, (map.get(`${p.r},${p.c}`) ?? 0) + 1);
-    const crossed = [...map.values()].some((n) => n >= 2);
-    if (five || four || crossed) keep.add(`${origin.r},${origin.c}`);
+  const at = !origin
+    ? null
+    : blown.some((p) => p.r === origin.r && p.c === origin.c)
+      ? origin
+      : (blown[Math.floor(blown.length / 2)] ?? origin);
+  const born = spawnSpecial(g, runs, at);
+  if (born !== "none") specials.push(born);
+
+  let painted: Pos[] = [];
+  if (born === "juice" && at) {
+    const color = g.grid[at.r]![at.c]?.color ?? "mango";
+    painted = paintCross(g, at, color);
+    g.combo += 1;
+    return { kind: "clear", cells: blown, specials, cracked: iceNeed(g.ice) < iceBefore, painted };
   }
+
+  const keep = new Set<string>();
+  if (born === "prism" && at) keep.add(`${at.r},${at.c}`);
+  tally(
+    g,
+    blown.filter((p) => !keep.has(`${p.r},${p.c}`))
+  );
+  crackIce(g, blown, 1);
   for (const p of blown) {
     if (keep.has(`${p.r},${p.c}`)) continue;
     g.grid[p.r]![p.c] = null;
   }
-  spawnSpecial(g, runs, origin && keep.has(`${origin.r},${origin.c}`) ? origin : null);
   g.score += blown.length * 40 * Math.max(1, g.combo);
   g.combo += 1;
-  return { kind: "clear", cells: blown, specials, cracked: iceNeed(g.ice) < iceBefore };
+  return { kind: "clear", cells: blown, specials, cracked: iceNeed(g.ice) < iceBefore, painted };
+}
+
+export function explodeCells(g: Game, cells: Pos[]): { cracked: boolean } {
+  const iceBefore = iceNeed(g.ice);
+  tally(g, cells);
+  crackIce(g, cells, 1);
+  for (const p of cells) {
+    if (inb(g, p.r, p.c)) g.grid[p.r]![p.c] = null;
+  }
+  g.score += cells.length * 40 * Math.max(1, g.combo);
+  return { cracked: iceNeed(g.ice) < iceBefore };
 }
 
 export function applyGravity(g: Game): DropFx[] {
@@ -344,34 +394,42 @@ export function tryActivateSpecial(
   g: Game,
   a: Pos,
   b: Pos
-): { special: Special; cells: Pos[]; cracked: boolean } | null {
-  const spots: { p: Pos; special: Special }[] = [];
-  for (const p of [a, b]) {
-    const sp = g.grid[p.r]![p.c]?.special ?? "none";
-    if (sp !== "none") spots.push({ p, special: sp });
-  }
-  if (!spots.length) return null;
-  const cells: Pos[] = [];
-  const seen = new Set<string>();
-  const add = (q: Pos) => {
-    const k = `${q.r},${q.c}`;
-    if (seen.has(k) || !inb(g, q.r, q.c)) return;
-    seen.add(k);
-    cells.push(q);
-  };
-  let main: Special = spots[0]!.special;
-  for (const s of spots) {
-    main = s.special;
-    blastArea(g, s.p, add, s.special);
-  }
+): { special: Special; cells: Pos[]; cracked: boolean; painted: Pos[] } | null {
+  const sa = g.grid[a.r]![a.c]?.special ?? "none";
+  const sb = g.grid[b.r]![b.c]?.special ?? "none";
+  if (sa === "none" && sb === "none") return null;
   const iceBefore = iceNeed(g.ice);
-  const power = main === "burst" ? 1 : 2;
-  tally(g, cells);
-  crackIce(g, cells, power);
-  for (const p of cells) g.grid[p.r]![p.c] = null;
-  g.score += cells.length * 60;
-  g.combo += 1;
-  return { special: main, cells, cracked: iceNeed(g.ice) < iceBefore };
+
+  if (sa === "prism" || sb === "prism") {
+    const other = sa === "prism" ? b : a;
+    const prism = sa === "prism" ? a : b;
+    const otherSp = g.grid[other.r]![other.c]?.special ?? "none";
+    let cells: Pos[] = [];
+    if (otherSp === "prism") {
+      for (let r = 0; r < g.size; r++)
+        for (let c = 0; c < g.size; c++) if (g.grid[r]![c]) cells.push({ r, c });
+      tally(g, cells);
+      crackIce(g, cells, 1);
+      for (const p of cells) g.grid[p.r]![p.c] = null;
+    } else {
+      const col = g.grid[other.r]![other.c]?.color;
+      if (g.grid[prism.r]![prism.c]) g.grid[prism.r]![prism.c] = null;
+      if (col) cells = wipeColor(g, col);
+    }
+    g.score += cells.length * 60;
+    g.combo += 1;
+    return { special: "prism", cells, cracked: iceNeed(g.ice) < iceBefore, painted: [] };
+  }
+
+  const juiceAt = sa === "juice" ? a : sb === "juice" ? b : null;
+  if (juiceAt) {
+    const color = g.grid[juiceAt.r]![juiceAt.c]?.color ?? "mango";
+    const painted = paintCross(g, juiceAt, color);
+    g.score += painted.length * 20;
+    g.combo += 1;
+    return { special: "juice", cells: painted, cracked: iceNeed(g.ice) < iceBefore, painted };
+  }
+  return null;
 }
 
 export function wouldMatch(g: Game, a: Pos, b: Pos) {
@@ -455,12 +513,12 @@ export function createGame(
   const goals = level.goals.map((gl) => ({ ...gl }));
 
   if (difficulty === "easy") {
-    colorCount = Math.min(4, colorCount);
+    colorCount = Math.min(5, Math.max(4, colorCount - 2));
     moves = Math.min(40, Math.floor(moves * 1.45) + 6);
     ice = ice.map((row) => row.map((v) => (v > 0 ? 1 : 0)));
     for (const gl of goals) gl.need = Math.max(4, Math.floor(gl.need * 0.7));
   } else if (difficulty === "hard") {
-    colorCount = 5;
+    colorCount = Math.min(10, Math.max(8, colorCount + 2));
     moves = Math.max(10, Math.floor(moves * 0.7));
     ice = ice.map((row) =>
       row.map((v) => (v > 0 && rng() < 0.4 ? 2 : v === 0 && rng() < 0.06 ? 1 : v))
@@ -495,4 +553,4 @@ export function createGame(
   return { game, rng };
 }
 
-export const COMBO_NAME = ["", "", "يا سلام", "تسبيكة", "كوكتيل", "عصّارة"];
+export const COMBO_NAME = ["", "", "يا سلام", "تسبيكة", "كوكتيل", "طيف"];

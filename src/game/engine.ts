@@ -1,4 +1,4 @@
-import type { Cell, ColorId, Difficulty, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
+import type { Cell, ColorId, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
 
 export const ALL_COLORS: ColorId[] = [
   "berry",
@@ -502,29 +502,12 @@ export function ensureMoves(g: Game, rng: () => number) {
   g.hint = null;
 }
 
-export function createGame(
-  level: LevelDef,
-  difficulty: Difficulty = "mid"
-): { game: Game; rng: () => number } {
-  const rng = mulberry(level.id * 9176 + 13 + (difficulty === "hard" ? 91 : difficulty === "easy" ? 17 : 0));
-  let colorCount = level.colorCount;
-  let moves = level.moves;
-  let ice = parseIce(level);
+export function createGame(level: LevelDef): { game: Game; rng: () => number } {
+  const rng = mulberry(level.id * 9176 + 13);
+  const colorCount = level.colorCount;
+  const moves = level.moves;
+  const ice = parseIce(level);
   const goals = level.goals.map((gl) => ({ ...gl }));
-
-  if (difficulty === "easy") {
-    colorCount = Math.min(5, Math.max(4, colorCount - 2));
-    moves = Math.min(40, Math.floor(moves * 1.45) + 6);
-    ice = ice.map((row) => row.map((v) => (v > 0 ? 1 : 0)));
-    for (const gl of goals) gl.need = Math.max(4, Math.floor(gl.need * 0.7));
-  } else if (difficulty === "hard") {
-    colorCount = Math.min(10, Math.max(8, colorCount + 2));
-    moves = Math.max(10, Math.floor(moves * 0.7));
-    ice = ice.map((row) =>
-      row.map((v) => (v > 0 && rng() < 0.4 ? 2 : v === 0 && rng() < 0.06 ? 1 : v))
-    );
-    for (const gl of goals) gl.need = Math.floor(gl.need * 1.15) + 1;
-  }
 
   const needed = [...new Set(goals.map((gl) => gl.color))];
   const extras = ALL_COLORS.filter((c) => !needed.includes(c));
@@ -538,7 +521,7 @@ export function createGame(
     grid,
     ice,
     collected: emptyCollected(),
-    difficulty,
+    difficulty: "mid",
     moves,
     maxMoves: moves,
     score: 0,

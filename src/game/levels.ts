@@ -1,6 +1,6 @@
 import type { ColorId, Goal, GoalKind, LevelDef, MenuPack, ThemeId } from "./types";
 
-export const MENUS = 30;
+export const MENUS = 50;
 export const ORDERS = 10;
 
 const AR = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
@@ -129,7 +129,7 @@ function buildLevels(): LevelDef[] {
       const id = (menu - 1) * ORDERS + order;
       const rng = mulberry(menu * 1009 + order * 17 + 3);
       const size = menu < 4 && order < 5 ? 7 : 8;
-      const colorCount = menu < 4 ? 5 : menu < 10 ? 6 : menu < 16 ? 7 : menu < 22 ? 8 : 10;
+      const colorCount = menu < 5 ? 5 : menu < 12 ? 6 : menu < 22 ? 7 : menu < 32 ? 8 : menu < 42 ? 9 : 10;
       const pool = FRUIT.slice(0, colorCount);
       const kind: GoalKind = (menu + order) % 3 === 1 ? "juice" : (menu + order) % 3 === 2 ? "duo" : "salad";
       const goals = goalsOf(kind, menu, order, rng, pool);

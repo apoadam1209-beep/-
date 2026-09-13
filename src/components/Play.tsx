@@ -19,8 +19,8 @@ import {
   swipeGoal,
   tryActivateSpecial,
 } from "../game/engine";
-import { LEVELS, menuOf } from "../game/levels";
-import type { Difficulty, Dir, DropFx, Game, Pos } from "../game/types";
+import { LEVELS } from "../game/levels";
+import type { Dir, DropFx, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -35,8 +35,6 @@ const SEE_MS = 50;
 type Props = {
   levelId: number;
   muted: boolean;
-  stars: number[];
-  difficulty: Difficulty;
   onMuted: (v: boolean) => void;
   onWin: (id: number, stars: number) => void;
   onMenu: () => void;
@@ -47,14 +45,13 @@ type Props = {
 export function Play({
   levelId,
   muted,
-  difficulty,
   onMuted,
   onWin,
   onMenu,
   onNext,
   onNights,
 }: Props) {
-  const pack = useRef(createGame(LEVELS[levelId - 1]!, difficulty));
+  const pack = useRef(createGame(LEVELS[levelId - 1]!));
   const [game, setGame] = useState<Game>(pack.current.game);
   const [burst, setBurst] = useState<Pos[]>([]);
   const [fire, setFire] = useState<Pos[]>([]);
@@ -63,10 +60,9 @@ export function Play({
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const packMenu = menuOf(levelId);
 
   function boot() {
-    const p = createGame(LEVELS[levelId - 1]!, difficulty);
+    const p = createGame(LEVELS[levelId - 1]!);
     pack.current = p;
     setGame({ ...p.game, grid: p.game.grid.map((row) => row.slice()) });
     setBurst([]);
@@ -82,7 +78,7 @@ export function Play({
     boot();
     void audio.ensure().then(() => audio.startShop());
     return () => audio.stopShop();
-  }, [levelId, difficulty]);
+  }, [levelId]);
 
   useEffect(() => {
     if (busy || game.status !== "play") return;
@@ -250,17 +246,14 @@ export function Play({
   const iceN = iceLeft(game);
 
   return (
-    <div className="play-root">
-      <div className="sky" style={{ backgroundImage: `url(${packMenu.art})` }} />
-      <div className="vignette" />
+    <div className="play-root is-fill">
+      <div className="sky" style={{ backgroundImage: "url(art/garden-path.jpg)" }} />
+      <div className="vignette play-vignette" />
 
-      <header className="hud hud-slim">
+      <header className="hud hud-float">
         <button className="chip icon" onClick={onMenu} aria-label="خروج">
           ✕
         </button>
-        <div className="hud-mid">
-          <div className="title-sm">{game.level.name}</div>
-        </div>
         <button
           className="chip icon"
           onClick={() => {
@@ -273,7 +266,7 @@ export function Play({
         </button>
       </header>
 
-      <div className={`order-row ${game.level.kind}`}>
+      <div className={`order-row is-float ${game.level.kind}`}>
         {game.level.goals.map((gl) => {
           const got = game.collected[gl.color] ?? 0;
           const left = Math.max(0, gl.need - got);
@@ -300,7 +293,7 @@ export function Play({
         <strong className="moves">{game.moves}</strong>
       </div>
 
-      <div className="board-wrap">
+      <div className="board-wrap is-fill">
         {toast && <div className="combo-toast">{toast}</div>}
         <Board
           game={game}
@@ -342,7 +335,7 @@ export function Play({
             ) : (
               <div className="emoji">🥤</div>
             )}
-            <div className="col-btns">
+            <div className="col-btns row-btns">
               <button className="btn-main" onClick={boot}>
                 تاني
               </button>
@@ -351,8 +344,8 @@ export function Play({
                   →
                 </button>
               )}
-              <button className="btn-ghost" onClick={onNights}>
-                القوائم
+              <button className="btn-map" onClick={onNights} aria-label="الحديقة">
+                <span className="map-dot" />
               </button>
             </div>
           </div>

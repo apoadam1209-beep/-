@@ -1,4 +1,4 @@
-const VERSION = "yalla-fruit-v3";
+const VERSION = "yalla-fruit-v4";
 const SHELL = `${VERSION}-shell`;
 
 const PRECACHE = [
@@ -11,6 +11,8 @@ const PRECACHE = [
   "./icons/apple-touch-icon.png",
   "./art/shop-juice.jpg",
   "./art/shop-market.jpg",
+  "./art/menu-orchard.jpg",
+  "./art/garden-path.jpg",
   "./art/fruit-berry.png",
   "./art/fruit-kiwi.png",
   "./art/fruit-mango.png",

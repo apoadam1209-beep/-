@@ -1,4 +1,4 @@
-const VERSION = "ramadan-nur-v10";
+const VERSION = "yalla-fruit-v1";
 const SHELL = `${VERSION}-shell`;
 
 const PRECACHE = [
@@ -9,18 +9,16 @@ const PRECACHE = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
-  "./art/night-alley.jpg",
-  "./art/night-square.jpg",
-  "./art/night-roof.jpg",
-  "./art/dawn-sky.jpg",
-  "./art/fanoos-ruby.png",
-  "./art/fanoos-gold.png",
-  "./art/fanoos-emerald.png",
-  "./art/fanoos-aqua.png",
-  "./art/fanoos-violet.png",
-  "./art/dynamite.png",
-  "./art/cannon.png",
-  "./art/fireburst.png",
+  "./art/shop-juice.jpg",
+  "./art/shop-market.jpg",
+  "./art/fruit-berry.png",
+  "./art/fruit-kiwi.png",
+  "./art/fruit-mango.png",
+  "./art/fruit-blue.png",
+  "./art/fruit-grape.png",
+  "./art/blend.png",
+  "./art/press.png",
+  "./art/ice.png",
 ];
 
 self.addEventListener("install", (event) => {

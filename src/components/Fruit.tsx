@@ -3,12 +3,12 @@ import type { Cell } from "../game/types";
 import { cn } from "../utils/cn";
 
 const SP_ART: Record<string, string> = {
-  dynamite: "art/dynamite.png",
-  cannon: "art/cannon.png",
-  burst: "art/dynamite.png",
+  blend: "art/blend.png",
+  press: "art/press.png",
+  burst: "art/blend.png",
 };
 
-export function LanternView({
+export function FruitView({
   cell,
   selected,
   hint,
@@ -18,11 +18,10 @@ export function LanternView({
   hint?: boolean;
 }) {
   const meta = COLOR_META[cell.color];
-  const delay = `${(cell.id % 7) * 0.31}s`;
   return (
     <div
       className={cn(
-        "lantern",
+        "fruit",
         `c-${cell.color}`,
         selected && "is-selected",
         hint && "is-hint",
@@ -30,12 +29,9 @@ export function LanternView({
       )}
       style={{
         ["--glow" as string]: meta.hex,
-        ["--deep" as string]: meta.deep,
-        ["--swing-delay" as string]: delay,
       }}
     >
-      <span className="fn-aura" />
-      <img className="fn-photo" src={meta.art} alt="" draggable={false} />
+      <img className="fr-photo" src={meta.art} alt="" draggable={false} />
       {cell.special !== "none" && SP_ART[cell.special] && (
         <img className="sp-art" src={SP_ART[cell.special]} alt="" draggable={false} />
       )}

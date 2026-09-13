@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { LanternView } from "./Lantern";
-import { COLOR_META, stepDir } from "../game/engine";
+import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { FruitView } from "./Fruit";
+import { stepDir } from "../game/engine";
 import type { Cell, Dir, DropFx, Game, Pos } from "../game/types";
 import { cn } from "../utils/cn";
 
@@ -198,26 +198,20 @@ export function Board({
     <div className="board-shell">
       <div ref={frameRef} className="board-frame" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }} dir="ltr">
         {game.grid.map((row, r) =>
-          row.map((cell, c) => {
+          row.map((_cell, c) => {
             const pos = { r, c };
             const k = keyOf(pos);
-            const dark = game.dark[r]![c]!;
-            const ghost = game.ghost[r]![c];
-            const isCat = game.cat?.r === r && game.cat?.c === c;
-            const ghostHex = ghost ? COLOR_META[ghost].hex : undefined;
+            const ice = game.ice[r]![c]!;
             return (
               <button
                 key={`${r}-${c}`}
                 type="button"
                 className={cn(
                   "cell",
-                  dark > 0 ? "is-dark" : "is-lit",
-                  dark > 1 && "is-heavy",
-                  burstSet.has(k) && "is-burst",
-                  isCat && "is-cat",
-                  ghost && "is-ghost"
+                  ice > 0 ? "is-ice" : "is-free",
+                  ice > 1 && "is-heavy",
+                  burstSet.has(k) && "is-burst"
                 )}
-                style={ghostHex ? ({ ["--ghost" as string]: ghostHex } as CSSProperties) : undefined}
                 onPointerDown={(e) => {
                   e.preventDefault();
                   onDown(e, pos);
@@ -227,13 +221,8 @@ export function Board({
                 onPointerCancel={onUp}
               >
                 <span className="cell-pad" />
-                {dark > 0 && <span className="target-ring" />}
-                {ghost && <span className="ghost-glow" />}
-                {fireSet.has(k) && (
-                  <img className="fx-fire" src="art/fireburst.png" alt="" draggable={false} />
-                )}
-                {isCat && <span className="cat">🐱</span>}
-                {!cell && null}
+                {ice > 0 && <img className="ice-layer" data-n={ice} src="art/ice.png" alt="" draggable={false} />}
+                {fireSet.has(k) && <span className="fx-splash" />}
               </button>
             );
           })
@@ -282,7 +271,7 @@ export function Board({
                   zIndex: dragging ? 10 : sliding ? 9 : falling || lift ? 6 : 2,
                 }}
               >
-                <LanternView
+                <FruitView
                   cell={cell}
                   selected={dragging}
                   hint={hintSet.has(k)}

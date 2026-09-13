@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HARAS, LEVELS, NIGHTS } from "../game/levels";
+import { LEVELS, MENU_PACKS, ORDERS } from "../game/levels";
 
 type Props = {
   unlocked: number;
@@ -9,32 +9,30 @@ type Props = {
 };
 
 export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
-  const currentDay = Math.min(NIGHTS.length, Math.ceil(unlocked / HARAS));
-  const [open, setOpen] = useState(currentDay);
-  const night = NIGHTS[open - 1];
-  const lit = night
-    ? LEVELS.filter((l) => l.day === night.day && (stars[l.id] ?? 0) > 0).length
+  const current = Math.min(MENU_PACKS.length, Math.ceil(unlocked / ORDERS));
+  const [open, setOpen] = useState(current);
+  const pack = MENU_PACKS[open - 1];
+  const lit = pack
+    ? LEVELS.filter((l) => l.menu === pack.menu && (stars[l.id] ?? 0) > 0).length
     : 0;
-  const full = lit >= HARAS;
 
   return (
     <div className="page nights-page">
-      {night && (
+      {pack && (
         <div
           className="sky"
           style={{
-            backgroundImage: `url(${night.art})`,
-            filter: `brightness(${0.55 + (lit / HARAS) * 0.7})`,
-            opacity: 0.55,
+            backgroundImage: `url(${pack.art})`,
+            opacity: 0.45,
           }}
         />
       )}
       <button className="chip" onClick={onBack}>
         ✕
       </button>
-      <h1>الليالي</h1>
+      <h1>القوائم</h1>
       <div className="cal">
-        {NIGHTS.map((n) => {
+        {MENU_PACKS.map((n) => {
           const lockDay = n.from > unlocked;
           const lamps = LEVELS.filter((l) => l.id >= n.from && l.id <= n.to).map(
             (l) => (stars[l.id] ?? 0) > 0
@@ -42,12 +40,12 @@ export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
           const all = lamps.every(Boolean);
           return (
             <button
-              key={n.day}
-              className={`cal-day ${open === n.day ? "is-open" : ""} ${all ? "is-lit" : ""}`}
+              key={n.menu}
+              className={`cal-day ${open === n.menu ? "is-open" : ""} ${all ? "is-lit" : ""}`}
               disabled={lockDay}
-              onClick={() => setOpen(n.day)}
+              onClick={() => setOpen(n.menu)}
             >
-              <b>{n.day}</b>
+              <b>{n.menu}</b>
               <span className="mini-lamps">
                 {lamps.map((on, i) => (
                   <i key={i} className={on ? "on" : ""} />
@@ -57,20 +55,10 @@ export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
           );
         })}
       </div>
-      {night && (
+      {pack && (
         <section className="night-block">
-          <div className="street-row in-page">
-            {Array.from({ length: HARAS }, (_, i) => (
-              <img
-                key={i}
-                src="art/fanoos-gold.png"
-                className={i < lit ? "hang is-on" : "hang"}
-                alt=""
-              />
-            ))}
-          </div>
           <div className="grid-lv">
-            {LEVELS.filter((l) => l.day === open).map((l) => {
+            {LEVELS.filter((l) => l.menu === open).map((l) => {
               const lock = l.id > unlocked;
               const st = stars[l.id] ?? 0;
               return (
@@ -80,14 +68,14 @@ export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
                   disabled={lock}
                   onClick={() => onPlay(l.id)}
                 >
-                  <img src="art/fanoos-gold.png" className={st > 0 ? "hang is-on" : "hang"} alt="" />
-                  <b>{lock ? "—" : l.hara}</b>
+                  <b>{lock ? "—" : l.order}</b>
+                  <span>{lock ? "" : l.name}</span>
                   <em>{"★".repeat(st)}</em>
                 </button>
               );
             })}
           </div>
-          {full && <div className="night-glow">★</div>}
+          {lit >= ORDERS && <div className="night-glow">★</div>}
         </section>
       )}
     </div>

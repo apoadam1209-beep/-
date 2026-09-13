@@ -3,10 +3,11 @@ type Props = { onBack: () => void; onPlay: () => void };
 export function HowTo({ onBack, onPlay }: Props) {
   const items = [
     { t: "←↑↓→", d: "اسحب" },
-    { t: "▣", d: "الإطار الذهبي" },
-    { t: "٤", d: "ديناميت" },
-    { t: "٥", d: "مدفع" },
-    { t: "◌", d: "الظل" },
+    { t: "🥤", d: "عصير" },
+    { t: "🥗", d: "سلطة" },
+    { t: "٤", d: "خلاط" },
+    { t: "٥", d: "عصّارة" },
+    { t: "❄", d: "تلج" },
   ];
   return (
     <div className="page">

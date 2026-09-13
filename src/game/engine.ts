@@ -1,16 +1,16 @@
 import type { Cell, ColorId, Difficulty, Dir, DropFx, Game, LevelDef, Pos, Special } from "./types";
 
-export const ALL_COLORS: ColorId[] = ["ruby", "emerald", "gold", "aqua", "violet"];
+export const ALL_COLORS: ColorId[] = ["berry", "kiwi", "mango", "blue", "grape"];
 
 export const COLOR_META: Record<
   ColorId,
   { name: string; hex: string; deep: string; art: string }
 > = {
-  ruby: { name: "أحمر", hex: "#ff2a2a", deep: "#8a0000", art: "art/fanoos-ruby.png" },
-  emerald: { name: "أخضر", hex: "#00e06a", deep: "#006b32", art: "art/fanoos-emerald.png" },
-  gold: { name: "ذهبي", hex: "#ffd000", deep: "#9a6a00", art: "art/fanoos-gold.png" },
-  aqua: { name: "أزرق", hex: "#00d0f0", deep: "#006a88", art: "art/fanoos-aqua.png" },
-  violet: { name: "بنفسج", hex: "#c84bff", deep: "#5a0088", art: "art/fanoos-violet.png" },
+  berry: { name: "فراولة", hex: "#ff2d4a", deep: "#a01028", art: "art/fruit-berry.png" },
+  kiwi: { name: "كيوي", hex: "#7ad000", deep: "#3a7a00", art: "art/fruit-kiwi.png" },
+  mango: { name: "مانجو", hex: "#ffb000", deep: "#c46a00", art: "art/fruit-mango.png" },
+  blue: { name: "توت", hex: "#4a7cff", deep: "#1a3a9a", art: "art/fruit-blue.png" },
+  grape: { name: "عنب", hex: "#c44bff", deep: "#6a0088", art: "art/fruit-grape.png" },
 };
 
 let nid = 1;
@@ -33,19 +33,16 @@ function inb(g: Game, r: number, c: number) {
   return r >= 0 && c >= 0 && r < g.size && c < g.size;
 }
 
-function parseDark(level: LevelDef): number[][] {
-  return level.dark.map((row) =>
-    [...row].map((ch) => (ch === "2" ? 2 : ch === "1" ? 1 : 0))
-  );
+function parseIce(level: LevelDef): number[][] {
+  return level.ice.map((row) => [...row].map((ch) => (ch === "2" ? 2 : ch === "1" ? 1 : 0)));
 }
 
-function needOf(dark: number[][]) {
-  return dark.reduce((a, row) => a + row.reduce((b, n) => b + n, 0), 0);
+function iceNeed(ice: number[][]) {
+  return ice.reduce((a, row) => a + row.reduce((b, n) => b + (n > 0 ? 1 : 0), 0), 0);
 }
 
-function litOf(dark: number[][], start: number) {
-  const now = needOf(dark);
-  return Math.max(0, start - now);
+function emptyCollected(): Record<ColorId, number> {
+  return { berry: 0, kiwi: 0, mango: 0, blue: 0, grape: 0 };
 }
 
 function makeCell(color: ColorId, special: Special = "none"): Cell {
@@ -63,11 +60,7 @@ function colorAt(grid: (Cell | null)[][], r: number, c: number, n: number): Colo
   return grid[r]![c]?.color ?? null;
 }
 
-function fillWithoutMatch(
-  n: number,
-  colors: ColorId[],
-  rng: () => number
-): (Cell | null)[][] {
+function fillWithoutMatch(n: number, colors: ColorId[], rng: () => number): (Cell | null)[][] {
   const grid: (Cell | null)[][] = Array.from({ length: n }, () => Array(n).fill(null));
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
@@ -151,10 +144,6 @@ function adjacent(a: Pos, b: Pos) {
   return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
 }
 
-function clonePos(p: Pos): Pos {
-  return { r: p.r, c: p.c };
-}
-
 export function stepDir(from: Pos, dir: Dir, n = 1): Pos {
   if (dir === "up") return { r: from.r - n, c: from.c };
   if (dir === "down") return { r: from.r + n, c: from.c };
@@ -178,7 +167,6 @@ export function findHint(g: Game): [Pos, Pos] | null {
         { r: r + 1, c },
       ]) {
         if (!inb(g, b.r, b.c)) continue;
-        if (isCat(g, a) || isCat(g, b)) continue;
         if (canSwap(g, a, b)) return [a, b];
       }
     }
@@ -193,18 +181,13 @@ function specialOf(g: Game, p: Pos): Special {
 function specialSwap(g: Game, a: Pos, b: Pos) {
   const sa = specialOf(g, a);
   const sb = specialOf(g, b);
-  return (sa !== "none" && sa !== undefined) || (sb !== "none" && sb !== undefined);
+  return sa !== "none" || sb !== "none";
 }
 
-function isCat(g: Game, p: Pos) {
-  return !!g.cat && g.cat.r === p.r && g.cat.c === p.c;
-}
-
-function lightCells(g: Game, cells: Pos[], power = 1) {
+function crackIce(g: Game, cells: Pos[], power = 1) {
   for (const p of cells) {
     if (!inb(g, p.r, p.c)) continue;
-    const bonus = g.ghost[p.r]![p.c] ? 1 : 0;
-    g.dark[p.r]![p.c] = Math.max(0, g.dark[p.r]![p.c]! - (power + bonus));
+    g.ice[p.r]![p.c] = Math.max(0, g.ice[p.r]![p.c]! - power);
     for (const [dr, dc] of [
       [0, 1],
       [0, -1],
@@ -213,20 +196,19 @@ function lightCells(g: Game, cells: Pos[], power = 1) {
     ]) {
       const rr = p.r + dr;
       const cc = p.c + dc;
-      if (inb(g, rr, cc)) g.dark[rr]![cc] = Math.max(0, g.dark[rr]![cc]! - 1);
+      if (inb(g, rr, cc)) g.ice[rr]![cc] = Math.max(0, g.ice[rr]![cc]! - 1);
     }
   }
 }
 
 function blastArea(g: Game, p: Pos, add: (q: Pos) => void, special: Special) {
-  if (special === "cannon") {
+  if (special === "press") {
     for (let c = 0; c < g.size; c++) add({ r: p.r, c });
     for (let r = 0; r < g.size; r++) add({ r, c: p.c });
     return;
   }
-  const rad = special === "dynamite" ? 1 : 1;
-  for (let dr = -rad; dr <= rad; dr++)
-    for (let dc = -rad; dc <= rad; dc++) add({ r: p.r + dr, c: p.c + dc });
+  for (let dr = -1; dr <= 1; dr++)
+    for (let dc = -1; dc <= 1; dc++) add({ r: p.r + dr, c: p.c + dc });
 }
 
 function triggerSpecials(g: Game, cells: Pos[]): Pos[] {
@@ -257,47 +239,47 @@ function spawnSpecial(g: Game, runs: Run[], origin: Pos | null) {
         const k = `${p.r},${p.c}`;
         map.set(k, (map.get(k) ?? 0) + 1);
       }
-    for (const [k, n] of map) if (n >= 2) {
-      const [r, c] = k.split(",").map(Number);
-      return { r: r!, c: c! };
-    }
+    for (const [k, n] of map)
+      if (n >= 2) {
+        const [r, c] = k.split(",").map(Number);
+        return { r: r!, c: c! };
+      }
     return null;
   })();
   const four = runs.find((r) => r.cells.length === 4);
-
   let special: Special = "none";
-  if (five) special = "cannon";
+  if (five) special = "press";
   else if (cross) special = "burst";
-  else if (four) special = "dynamite";
+  else if (four) special = "blend";
   if (special === "none") return;
-
   const place = inb(g, origin.r, origin.c) ? origin : runs[0]!.cells[0]!;
-  const color = g.grid[place.r]![place.c]?.color ?? five?.color ?? four?.color ?? "gold";
+  const color = g.grid[place.r]![place.c]?.color ?? five?.color ?? four?.color ?? "mango";
   g.grid[place.r]![place.c] = makeCell(color, special);
 }
 
-export type StepEvent =
-  | { kind: "clear"; cells: Pos[]; specials: Special[] }
-  | { kind: "light" }
-  | { kind: "drop" }
-  | { kind: "fill" }
-  | { kind: "moon"; color: ColorId; cells: Pos[] };
+function tally(g: Game, cells: Pos[]) {
+  for (const p of cells) {
+    const col = g.grid[p.r]![p.c]?.color;
+    if (col) g.collected[col] += 1;
+  }
+}
 
 export function applyClear(
   g: Game,
   cells: Pos[],
   origin: Pos | null,
   runs: Run[]
-): { kind: "clear"; cells: Pos[]; specials: Special[] } {
+): { kind: "clear"; cells: Pos[]; specials: Special[]; cracked: boolean } {
   const specials: Special[] = [];
   for (const p of cells) {
     const sp = g.grid[p.r]![p.c]?.special;
     if (sp && sp !== "none") specials.push(sp);
   }
   const blown = triggerSpecials(g, cells);
-  const prevColor = blown.map((p) => g.grid[p.r]![p.c]?.color ?? null);
-  const power = specials.some((s) => s === "dynamite" || s === "cannon") ? 2 : 1;
-  lightCells(g, blown, power);
+  const iceBefore = iceNeed(g.ice);
+  const power = specials.some((s) => s === "blend" || s === "press") ? 2 : 1;
+  tally(g, blown);
+  crackIce(g, blown, power);
   const keep = new Set<string>();
   if (origin) {
     const five = runs.find((r) => r.cells.length >= 5);
@@ -313,16 +295,9 @@ export function applyClear(
     g.grid[p.r]![p.c] = null;
   }
   spawnSpecial(g, runs, origin && keep.has(`${origin.r},${origin.c}`) ? origin : null);
-  blown.forEach((p, i) => {
-    const col = prevColor[i];
-    if (!col || keep.has(`${p.r},${p.c}`)) return;
-    g.ghost[p.r]![p.c] = col;
-    g.ghostAge[p.r]![p.c] = 0;
-  });
   g.score += blown.length * 40 * Math.max(1, g.combo);
   g.combo += 1;
-  g.lit = litOf(g.dark, g.need);
-  return { kind: "clear", cells: blown, specials };
+  return { kind: "clear", cells: blown, specials, cracked: iceNeed(g.ice) < iceBefore };
 }
 
 export function applyGravity(g: Game): DropFx[] {
@@ -360,10 +335,6 @@ export function applyFill(g: Game, rng: () => number): number[] {
   return born;
 }
 
-export function currentRuns(g: Game) {
-  return runsOf(g);
-}
-
 export function matchCells(g: Game): { runs: Run[]; cells: Pos[] } {
   const runs = runsOf(g);
   return { runs, cells: uniquePos(runs) };
@@ -373,7 +344,7 @@ export function tryActivateSpecial(
   g: Game,
   a: Pos,
   b: Pos
-): { special: Special; cells: Pos[] } | null {
+): { special: Special; cells: Pos[]; cracked: boolean } | null {
   const spots: { p: Pos; special: Special }[] = [];
   for (const p of [a, b]) {
     const sp = g.grid[p.r]![p.c]?.special ?? "none";
@@ -393,20 +364,14 @@ export function tryActivateSpecial(
     main = s.special;
     blastArea(g, s.p, add, s.special);
   }
+  const iceBefore = iceNeed(g.ice);
   const power = main === "burst" ? 1 : 2;
-  lightCells(g, cells, power);
-  for (const p of cells) {
-    const col = g.grid[p.r]![p.c]?.color ?? null;
-    g.grid[p.r]![p.c] = null;
-    if (col) {
-      g.ghost[p.r]![p.c] = col;
-      g.ghostAge[p.r]![p.c] = 0;
-    }
-  }
+  tally(g, cells);
+  crackIce(g, cells, power);
+  for (const p of cells) g.grid[p.r]![p.c] = null;
   g.score += cells.length * 60;
   g.combo += 1;
-  g.lit = litOf(g.dark, g.need);
-  return { special: main, cells };
+  return { special: main, cells, cracked: iceNeed(g.ice) < iceBefore };
 }
 
 export function wouldMatch(g: Game, a: Pos, b: Pos) {
@@ -421,7 +386,6 @@ export function canSwap(g: Game, a: Pos, b: Pos) {
   if (!adjacent(a, b)) return false;
   if (!inb(g, a.r, a.c) || !inb(g, b.r, b.c)) return false;
   if (!g.grid[a.r]![a.c] || !g.grid[b.r]![b.c]) return false;
-  if (isCat(g, a) || isCat(g, b)) return false;
   return wouldMatch(g, a, b) || specialSwap(g, a, b);
 }
 
@@ -429,48 +393,25 @@ export function doSwap(g: Game, a: Pos, b: Pos) {
   swapCells(g, a, b);
 }
 
-export function undoSwap(g: Game, a: Pos, b: Pos) {
-  swapCells(g, a, b);
-}
-
-function moveCat(g: Game, rng: () => number) {
-  if (!g.cat) return;
-  const dirs = [
-    { r: 1, c: 0 },
-    { r: -1, c: 0 },
-    { r: 0, c: 1 },
-    { r: 0, c: -1 },
-  ];
-  const opts = dirs
-    .map((d) => ({ r: g.cat!.r + d.r, c: g.cat!.c + d.c }))
-    .filter((p) => inb(g, p.r, p.c));
-  if (!opts.length) return;
-  g.cat = opts[Math.floor(rng() * opts.length)]!;
-}
-
-export function afterTurn(g: Game, rng: () => number) {
+export function afterTurn(g: Game) {
   g.combo = 1;
   g.selected = null;
   g.hint = null;
-  for (let r = 0; r < g.size; r++) {
-    for (let c = 0; c < g.size; c++) {
-      if (!g.ghost[r]![c]) continue;
-      g.ghostAge[r]![c] += 1;
-      if (g.ghostAge[r]![c]! > 1) {
-        g.ghost[r]![c] = null;
-        g.ghostAge[r]![c] = 0;
-      }
-    }
-  }
   if (g.status !== "play") return;
   g.moves -= 1;
-  moveCat(g, rng);
   finishCheck(g);
 }
 
+export function goalsLeft(g: Game) {
+  return g.level.goals.reduce((n, gl) => n + Math.max(0, gl.need - (g.collected[gl.color] ?? 0)), 0);
+}
+
+export function iceLeft(g: Game) {
+  return iceNeed(g.ice);
+}
+
 export function finishCheck(g: Game) {
-  g.lit = litOf(g.dark, g.need);
-  if (needOf(g.dark) <= 0) {
+  if (goalsLeft(g) <= 0 && iceLeft(g) <= 0) {
     g.status = "won";
     const left = g.moves;
     g.stars = left >= Math.max(6, Math.floor(g.maxMoves * 0.35)) ? 3 : left >= 3 ? 2 : 1;
@@ -510,34 +451,32 @@ export function createGame(
   const rng = mulberry(level.id * 9176 + 13 + (difficulty === "hard" ? 91 : difficulty === "easy" ? 17 : 0));
   let colorCount = level.colorCount;
   let moves = level.moves;
-  let dark = parseDark(level);
-  let cat: Pos | null =
-    level.day >= 10 && level.hara >= 4 ? { r: 0, c: Math.floor(level.size / 2) } : null;
+  let ice = parseIce(level);
+  const goals = level.goals.map((gl) => ({ ...gl }));
 
   if (difficulty === "easy") {
     colorCount = Math.min(4, colorCount);
     moves = Math.min(40, Math.floor(moves * 1.45) + 6);
-    dark = dark.map((row) => row.map((v) => (v > 0 ? 1 : 0)));
-    cat = null;
+    ice = ice.map((row) => row.map((v) => (v > 0 ? 1 : 0)));
+    for (const gl of goals) gl.need = Math.max(4, Math.floor(gl.need * 0.7));
   } else if (difficulty === "hard") {
     colorCount = 5;
     moves = Math.max(10, Math.floor(moves * 0.7));
-    dark = dark.map((row) =>
-      row.map((v) => (v > 0 && rng() < 0.35 ? 2 : v === 0 && rng() < 0.08 ? 1 : v))
+    ice = ice.map((row) =>
+      row.map((v) => (v > 0 && rng() < 0.4 ? 2 : v === 0 && rng() < 0.06 ? 1 : v))
     );
-    if (level.day >= 3) cat = { r: 0, c: Math.floor(level.size / 2) };
+    for (const gl of goals) gl.need = Math.floor(gl.need * 1.15) + 1;
   }
 
   const colors = ALL_COLORS.slice(0, colorCount);
   const grid = fillWithoutMatch(level.size, colors, rng);
   const game: Game = {
-    level,
+    level: { ...level, goals, moves },
     size: level.size,
     colors,
     grid,
-    dark,
-    ghost: Array.from({ length: level.size }, () => Array<ColorId | null>(level.size).fill(null)),
-    ghostAge: Array.from({ length: level.size }, () => Array<number>(level.size).fill(0)),
+    ice,
+    collected: emptyCollected(),
     difficulty,
     moves,
     maxMoves: moves,
@@ -547,35 +486,10 @@ export function createGame(
     hint: null,
     status: "play",
     stars: 0,
-    need: needOf(dark),
-    lit: 0,
-    cat,
+    needIce: iceNeed(ice),
   };
   ensureMoves(game, rng);
   return { game, rng };
 }
 
-export function selectOrSwap(
-  g: Game,
-  pos: Pos
-): { swap: [Pos, Pos] } | { invalid: true } | { select: Pos } | { deselect: true } {
-  if (g.status !== "play") return { invalid: true };
-  if (isCat(g, pos)) return { invalid: true };
-  if (!g.selected) return { select: clonePos(pos) };
-  if (g.selected.r === pos.r && g.selected.c === pos.c) return { deselect: true };
-  if (!adjacent(g.selected, pos)) return { select: clonePos(pos) };
-  if (!canSwap(g, g.selected, pos)) return { invalid: true };
-  return { swap: [clonePos(g.selected), clonePos(pos)] };
-}
-
-export function remainingDark(g: Game) {
-  return needOf(g.dark);
-}
-
-export function remainingCells(g: Game) {
-  let n = 0;
-  for (const row of g.dark) for (const v of row) if (v > 0) n++;
-  return n;
-}
-
-export const COMBO_NAME = ["", "", "يا سلام", "نور على نور", "الحارة صاحية", "مدفع"];
+export const COMBO_NAME = ["", "", "يا سلام", "تسبيكة", "كوكتيل", "عصّارة"];

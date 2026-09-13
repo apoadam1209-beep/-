@@ -1,17 +1,11 @@
-export type ColorId = "ruby" | "emerald" | "gold" | "aqua" | "violet";
-export type Special = "none" | "dynamite" | "cannon" | "burst";
-export type NightId = "alley" | "square" | "roof" | "dawn";
+export type ColorId = "berry" | "kiwi" | "mango" | "blue" | "grape";
+export type Special = "none" | "blend" | "press" | "burst";
+export type ThemeId = "juice" | "market" | "kitchen";
+export type GoalKind = "juice" | "duo" | "salad";
 export type Status = "play" | "won" | "lost";
 export type Dir = "up" | "down" | "left" | "right";
 export type Difficulty = "easy" | "mid" | "hard";
 export type Pos = { r: number; c: number };
-
-export type SwapFx = {
-  a: Pos;
-  b: Pos;
-  dir: Dir;
-  mode: "swap" | "bounce";
-};
 
 export type DropFx = { id: number; dist: number };
 
@@ -21,9 +15,11 @@ export type Cell = {
   special: Special;
 };
 
-export type Night = {
-  id: NightId;
-  day: number;
+export type Goal = { color: ColorId; need: number };
+
+export type MenuPack = {
+  id: ThemeId;
+  menu: number;
   name: string;
   from: number;
   to: number;
@@ -32,15 +28,16 @@ export type Night = {
 
 export type LevelDef = {
   id: number;
-  day: number;
-  hara: number;
+  menu: number;
+  order: number;
   name: string;
-  night: NightId;
-  blurb: string;
+  theme: ThemeId;
+  kind: GoalKind;
   size: number;
   colorCount: number;
   moves: number;
-  dark: string[];
+  goals: Goal[];
+  ice: string[];
 };
 
 export type Game = {
@@ -48,9 +45,8 @@ export type Game = {
   size: number;
   colors: ColorId[];
   grid: (Cell | null)[][];
-  dark: number[][];
-  ghost: (ColorId | null)[][];
-  ghostAge: number[][];
+  ice: number[][];
+  collected: Record<ColorId, number>;
   difficulty: Difficulty;
   moves: number;
   maxMoves: number;
@@ -60,7 +56,5 @@ export type Game = {
   hint: [Pos, Pos] | null;
   status: Status;
   stars: number;
-  lit: number;
-  need: number;
-  cat: Pos | null;
+  needIce: number;
 };

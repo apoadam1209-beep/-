@@ -1,38 +1,32 @@
-import type { LevelDef, Night, NightId } from "./types";
+import type { ColorId, Goal, GoalKind, LevelDef, MenuPack, ThemeId } from "./types";
 
-export const DAYS = 30;
-export const HARAS = 10;
+export const MENUS = 30;
+export const ORDERS = 10;
 
 const AR = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 export function arNum(n: number) {
   return String(n).replace(/\d/g, (d) => AR[Number(d)]!);
 }
 
-const HARA_NAMES = [
-  "الزقاق",
-  "البيت",
-  "السوق",
-  "المسجد",
-  "السطح",
-  "الحارة",
-  "الفسحة",
-  "الباب",
-  "المشربية",
-  "السحور",
-];
-
-const ART: Record<NightId, string> = {
-  alley: "art/night-alley.jpg",
-  square: "art/night-square.jpg",
-  roof: "art/night-roof.jpg",
-  dawn: "art/dawn-sky.jpg",
+const FRUIT: ColorId[] = ["berry", "kiwi", "mango", "blue", "grape"];
+const FRUIT_AR: Record<ColorId, string> = {
+  berry: "فراولة",
+  kiwi: "كيوي",
+  mango: "مانجو",
+  blue: "توت",
+  grape: "عنب",
 };
 
-function themeOf(day: number): NightId {
-  if (day <= 8) return "alley";
-  if (day <= 16) return "square";
-  if (day <= 24) return "roof";
-  return "dawn";
+const ART: Record<ThemeId, string> = {
+  juice: "art/shop-juice.jpg",
+  market: "art/shop-market.jpg",
+  kitchen: "art/shop-juice.jpg",
+};
+
+function themeOf(menu: number): ThemeId {
+  if (menu % 3 === 1) return "juice";
+  if (menu % 3 === 2) return "market";
+  return "kitchen";
 }
 
 function mulberry(seed: number) {
@@ -49,124 +43,95 @@ function inb(n: number, r: number, c: number) {
   return r >= 0 && c >= 0 && r < n && c < n;
 }
 
-function paint(n: number, kind: number, day: number, hara: number, rng: () => number) {
+function paintIce(n: number, menu: number, order: number, rng: () => number): string[] {
   const g = Array.from({ length: n }, () => Array<number>(n).fill(0));
   const set = (r: number, c: number, v: number) => {
     if (inb(n, r, c)) g[r]![c] = Math.max(g[r]![c]!, v);
   };
-  const heavy = day > 14 && hara > 5 ? 2 : 1;
+  const wantIce = menu >= 3 && (order === 4 || order === 8 || (menu >= 8 && order % 3 === 0) || (menu >= 16 && order % 2 === 0));
+  if (!wantIce) return g.map((row) => row.map(() => ".").join(""));
+
   const m = (n / 2) | 0;
-
-  switch (kind % 8) {
-    case 0: {
-      for (let i = 1; i < n - 1; i++) {
-        set(m, i, 1);
-        set(i, m, 1);
-      }
-      set(m, m, heavy);
-      break;
+  const kind = (menu + order) % 6;
+  if (kind === 0) {
+    for (let i = 1; i < n - 1; i++) {
+      set(m, i, 1);
+      set(i, m, 1);
     }
-    case 1: {
-      for (let i = 0; i < n; i++) {
-        set(0, i, 1);
-        set(n - 1, i, 1);
-        set(i, 0, 1);
-        set(i, n - 1, 1);
-      }
-      set(0, 0, heavy);
-      set(0, n - 1, heavy);
-      set(n - 1, 0, heavy);
-      set(n - 1, n - 1, heavy);
-      break;
+    set(m, m, menu > 12 ? 2 : 1);
+  } else if (kind === 1) {
+    for (let i = 0; i < n; i++) {
+      set(0, i, 1);
+      set(n - 1, i, 1);
     }
-    case 2: {
-      for (let r = 0; r < n; r++)
-        for (let c = 0; c < n; c++)
-          if ((r + c) % 2 === 0 && rng() < 0.55 + day * 0.01) set(r, c, 1);
-      break;
-    }
-    case 3: {
-      for (let i = 0; i < n; i++) {
-        set(i, i, heavy);
-        set(i, n - 1 - i, 1);
-      }
-      break;
-    }
-    case 4: {
-      for (let r = 0; r < 3; r++)
-        for (let c = 0; c < 3; c++) {
-          set(r, c, 1);
-          set(n - 1 - r, n - 1 - c, 1);
-        }
-      if (hara > 4)
-        for (let r = 0; r < 3; r++)
-          for (let c = 0; c < 3; c++) {
-            set(r, n - 1 - c, 1);
-            set(n - 1 - r, c, 1);
-          }
-      break;
-    }
-    case 5: {
-      const rows = hara % 2 === 0 ? [1, 3, n - 2] : [2, m, n - 3];
-      for (const r of rows) for (let c = 1; c < n - 1; c++) set(r, c, r === m ? heavy : 1);
-      break;
-    }
-    case 6: {
-      const cols = [1, m, n - 2];
-      for (const c of cols) for (let r = 1; r < n - 1; r++) set(r, c, 1);
-      break;
-    }
-    default: {
-      const rad = 1 + ((hara + day) % 3);
-      for (let r = 0; r < n; r++)
-        for (let c = 0; c < n; c++) {
-          const d = Math.abs(r - m) + Math.abs(c - m);
-          if (d <= rad) set(r, c, d === 0 ? heavy : 1);
-        }
-      break;
-    }
+  } else if (kind === 2) {
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++) if ((r + c) % 2 === 0 && rng() < 0.45) set(r, c, 1);
+  } else if (kind === 3) {
+    for (let i = 0; i < n; i++) set(i, i, 1);
+  } else {
+    for (let i = 0; i < 6 + (menu % 4); i++) set((rng() * n) | 0, (rng() * n) | 0, rng() < 0.25 && menu > 14 ? 2 : 1);
   }
-
-  const extra = 2 + ((day + hara) % 5);
-  for (let i = 0; i < extra; i++) {
-    set((rng() * n) | 0, (rng() * n) | 0, rng() < 0.3 && day > 10 ? 2 : 1);
-  }
-
-  if (day === 1 && hara === 1) {
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) g[r]![c] = 0;
-    set(m, m, 1);
-    set(m - 1, m, 1);
-    set(m + 1, m, 1);
-    set(m, m - 1, 1);
-    set(m, m + 1, 1);
-  }
-
   return g.map((row) => row.map((v) => (v === 0 ? "." : String(v))).join(""));
+}
+
+function goalsOf(kind: GoalKind, menu: number, order: number, rng: () => number): Goal[] {
+  const pick = () => FRUIT[Math.floor(rng() * FRUIT.length)]!;
+  const a = pick();
+  let b = pick();
+  while (b === a) b = pick();
+  let c = pick();
+  while (c === a || c === b) c = pick();
+  if (kind === "juice") {
+    return [{ color: a, need: 10 + Math.floor(menu * 0.7) + order }];
+  }
+  if (kind === "duo") {
+    const n = 7 + Math.floor(menu / 3) + Math.floor(order / 2);
+    return [
+      { color: a, need: n },
+      { color: b, need: Math.max(6, n - 2) },
+    ];
+  }
+  return [
+    { color: a, need: 5 + Math.floor(menu / 4) + Math.floor(order / 3) },
+    { color: b, need: 5 + Math.floor(menu / 5) },
+    { color: c, need: 4 + Math.floor(order / 4) },
+  ];
+}
+
+function titleOf(kind: GoalKind, goals: Goal[]) {
+  if (kind === "juice") return `عصير ${FRUIT_AR[goals[0]!.color]}`;
+  if (kind === "duo") return `${FRUIT_AR[goals[0]!.color]} و ${FRUIT_AR[goals[1]!.color]}`;
+  return "سلطة فواكه";
 }
 
 function buildLevels(): LevelDef[] {
   const out: LevelDef[] = [];
-  for (let day = 1; day <= DAYS; day++) {
-    const theme = themeOf(day);
-    for (let hara = 1; hara <= HARAS; hara++) {
-      const id = (day - 1) * HARAS + hara;
-      const rng = mulberry(day * 1009 + hara * 17 + 3);
-      const size = day < 5 && hara < 5 ? 7 : 8;
-      const colorCount = day < 4 ? 4 : 5;
-      const dark = paint(size, day + hara, day, hara, rng);
-      const need = dark.join("").replace(/\./g, "").length;
-      const moves = Math.max(14, Math.min(32, 12 + need + Math.floor((11 - hara) / 2) - Math.floor(day / 6)));
+  for (let menu = 1; menu <= MENUS; menu++) {
+    const theme = themeOf(menu);
+    for (let order = 1; order <= ORDERS; order++) {
+      const id = (menu - 1) * ORDERS + order;
+      const rng = mulberry(menu * 1009 + order * 17 + 3);
+      const size = menu < 4 && order < 5 ? 7 : 8;
+      const colorCount = menu < 3 ? 4 : 5;
+      const kind: GoalKind = (menu + order) % 3 === 1 ? "juice" : (menu + order) % 3 === 2 ? "duo" : "salad";
+      const goals = goalsOf(kind, menu, order, rng);
+      const ice = paintIce(size, menu, order, rng);
+      const iceN = ice.join("").replace(/\./g, "").length;
+      const need = goals.reduce((a, g) => a + g.need, 0);
+      const moves = Math.max(14, Math.min(34, 12 + Math.floor(need / 2) + Math.floor(iceN / 3) + Math.floor((11 - order) / 2)));
       out.push({
         id,
-        day,
-        hara,
-        name: `${arNum(day)} رمضان · ${HARA_NAMES[hara - 1]}`,
-        night: theme,
-        blurb: "اسحب",
+        menu,
+        order,
+        name: titleOf(kind, goals),
+        theme,
+        kind,
         size,
         colorCount,
         moves,
-        dark,
+        goals,
+        ice,
       });
     }
   }
@@ -175,21 +140,21 @@ function buildLevels(): LevelDef[] {
 
 export const LEVELS: LevelDef[] = buildLevels();
 
-export const NIGHTS: Night[] = Array.from({ length: DAYS }, (_, i) => {
-  const day = i + 1;
-  const id = themeOf(day);
+export const MENU_PACKS: MenuPack[] = Array.from({ length: MENUS }, (_, i) => {
+  const menu = i + 1;
+  const id = themeOf(menu);
   return {
     id,
-    day,
-    name: `${arNum(day)} رمضان`,
-    from: i * HARAS + 1,
-    to: (i + 1) * HARAS,
+    menu,
+    name: `قائمة ${arNum(menu)}`,
+    from: i * ORDERS + 1,
+    to: (i + 1) * ORDERS,
     art: ART[id],
   };
 });
 
-export function nightOf(levelId: number): Night {
-  return NIGHTS[Math.max(0, Math.min(DAYS - 1, Math.floor((levelId - 1) / HARAS)))]!;
+export function menuOf(levelId: number): MenuPack {
+  return MENU_PACKS[Math.max(0, Math.min(MENUS - 1, Math.floor((levelId - 1) / ORDERS)))]!;
 }
 
-export const HARA_LABELS = HARA_NAMES;
+export const FRUIT_NAME = FRUIT_AR;

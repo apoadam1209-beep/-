@@ -6,18 +6,19 @@ import {
   applyFill,
   applyGravity,
   canSwap,
+  COLOR_META,
   COMBO_NAME,
   createGame,
   doSwap,
   ensureMoves,
   findHint,
   finishCheck,
+  iceLeft,
   matchCells,
-  remainingCells,
   swipeGoal,
   tryActivateSpecial,
 } from "../game/engine";
-import { HARAS, LEVELS, nightOf } from "../game/levels";
+import { LEVELS, menuOf } from "../game/levels";
 import type { Difficulty, Dir, DropFx, Game, Pos } from "../game/types";
 import { Board } from "./Board";
 
@@ -45,7 +46,6 @@ type Props = {
 export function Play({
   levelId,
   muted,
-  stars,
   difficulty,
   onMuted,
   onWin,
@@ -62,9 +62,7 @@ export function Play({
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const night = nightOf(levelId);
-  const leftCells = remainingCells(game);
-  const litHaras = LEVELS.filter((l) => l.day === night.day && (stars[l.id] ?? 0) > 0).length;
+  const packMenu = menuOf(levelId);
 
   function boot() {
     const p = createGame(LEVELS[levelId - 1]!, difficulty);
@@ -81,8 +79,8 @@ export function Play({
 
   useEffect(() => {
     boot();
-    void audio.ensure().then(() => audio.startNight());
-    return () => audio.stopNight();
+    void audio.ensure().then(() => audio.startShop());
+    return () => audio.stopShop();
   }, [levelId, difficulty]);
 
   useEffect(() => {
@@ -102,24 +100,24 @@ export function Play({
     setGame({
       ...g,
       grid: g.grid.map((row) => row.slice()),
-      dark: g.dark.map((row) => row.slice()),
-      ghost: g.ghost.map((row) => row.slice()),
-      ghostAge: g.ghostAge.map((row) => row.slice()),
+      ice: g.ice.map((row) => row.slice()),
+      collected: { ...g.collected },
       selected: g.selected ? { ...g.selected } : null,
       hint: g.hint ? [{ ...g.hint[0] }, { ...g.hint[1] }] : null,
-      cat: g.cat ? { ...g.cat } : null,
     });
   }
 
   function bang(specials: string[], cells: Pos[]) {
-    const boom = specials.includes("dynamite") || specials.includes("cannon") || specials.includes("burst");
-    if (boom) setFire(cells);
+    if (specials.includes("blend") || specials.includes("press") || specials.includes("burst")) {
+      setFire(cells);
+    }
   }
 
-  async function boomSound(specials: string[]) {
+  async function boomSound(specials: string[], cracked: boolean) {
     await afterPaint();
-    if (specials.includes("cannon")) audio.cannon();
-    else if (specials.includes("dynamite") || specials.includes("burst")) audio.dynamite();
+    if (specials.includes("press")) audio.press();
+    else if (specials.includes("blend") || specials.includes("burst")) audio.blend();
+    if (cracked) audio.ice();
   }
 
   async function fallAndFill() {
@@ -146,8 +144,8 @@ export function Play({
       setBurst(cells);
       const four = runs.find((r) => r.cells.length === 4);
       const five = runs.find((r) => r.cells.length >= 5);
-      if (five) setToast("مدفع");
-      else if (four) setToast("ديناميت");
+      if (five) setToast("عصّارة");
+      else if (four) setToast("خلاط");
       else if (g.combo >= 2) setToast(COMBO_NAME[Math.min(g.combo, COMBO_NAME.length - 1)] ?? "يا سلام");
       snap();
       await afterPaint();
@@ -159,7 +157,7 @@ export function Play({
       origin = null;
       bang(ev.specials, ev.cells);
       snap();
-      await boomSound(ev.specials);
+      await boomSound(ev.specials, ev.cracked);
       audio.light();
       await fallAndFill();
     }
@@ -175,11 +173,6 @@ export function Play({
     if (g.status !== "play") return false;
     const to = swipeGoal(g, from, dir);
     if (!to) return false;
-    if (
-      g.cat &&
-      ((g.cat.r === from.r && g.cat.c === from.c) || (g.cat.r === to.r && g.cat.c === to.c))
-    )
-      return false;
     return canSwap(g, from, to);
   }
 
@@ -207,13 +200,13 @@ export function Play({
       if (boom) {
         bang([boom.special], boom.cells);
         snap();
-        await boomSound([boom.special]);
+        await boomSound([boom.special], boom.cracked);
         audio.light();
       }
       await fallAndFill();
     }
     await resolveBoard(a);
-    afterTurn(g, pack.current.rng);
+    afterTurn(g);
     snap();
     if (g.status === "won") {
       audio.win();
@@ -230,46 +223,20 @@ export function Play({
     void performSwap(from, to);
   }
 
-  const dawn = 1 - game.moves / Math.max(1, game.maxMoves);
   const over = game.status !== "play";
-  const street = 0.15 + (litHaras / HARAS) * 0.55;
+  const iceN = iceLeft(game);
 
   return (
     <div className="play-root">
-      <div
-        className="sky"
-        style={{
-          backgroundImage: `url(${night.art})`,
-          filter: `brightness(${0.7 + street * 0.5})`,
-        }}
-      />
-      <div
-        className="dawn"
-        style={{
-          opacity: game.level.night === "dawn" ? 0.35 + dawn * 0.4 : dawn * 0.18 + street * 0.2,
-          backgroundImage: "url(art/dawn-sky.jpg)",
-        }}
-      />
+      <div className="sky" style={{ backgroundImage: `url(${packMenu.art})` }} />
       <div className="vignette" />
-      <div className="street-row" aria-hidden>
-        {Array.from({ length: HARAS }, (_, i) => (
-          <img
-            key={i}
-            src="art/fanoos-gold.png"
-            className={i < litHaras ? "hang is-on" : "hang"}
-            alt=""
-          />
-        ))}
-      </div>
 
       <header className="hud hud-slim">
         <button className="chip icon" onClick={onMenu} aria-label="خروج">
           ✕
         </button>
         <div className="hud-mid">
-          <div className="title-sm">
-            {night.day} · {game.level.hara}
-          </div>
+          <div className="title-sm">{game.level.name}</div>
         </div>
         <button
           className="chip icon"
@@ -283,13 +250,31 @@ export function Play({
         </button>
       </header>
 
-      <div className="mission slim">
-        <span className="gold-dot" />
-        <b>{leftCells}</b>
-        <div className="bar grow">
-          <i style={{ width: `${game.need ? (game.lit / game.need) * 100 : 100}%` }} />
-        </div>
-        <strong>{game.moves}</strong>
+      <div className={`order-row ${game.level.kind}`}>
+        {game.level.goals.map((gl) => {
+          const got = game.collected[gl.color] ?? 0;
+          const left = Math.max(0, gl.need - got);
+          const pct = Math.min(100, (got / Math.max(1, gl.need)) * 100);
+          const meta = COLOR_META[gl.color];
+          return (
+            <div
+              key={gl.color}
+              className={game.level.kind === "salad" ? "goal bowl" : "goal glass"}
+              style={{ ["--juice" as string]: meta.hex }}
+            >
+              <span className="goal-fill" style={{ height: `${pct}%` }} />
+              <img src={meta.art} alt="" />
+              <b>{left}</b>
+            </div>
+          );
+        })}
+        {game.needIce > 0 && (
+          <div className="goal ice-goal">
+            <img src="art/ice.png" alt="" />
+            <b>{iceN}</b>
+          </div>
+        )}
+        <strong className="moves">{game.moves}</strong>
       </div>
 
       <div className="board-wrap">
@@ -318,7 +303,7 @@ export function Play({
                 {"☆".repeat(3 - game.stars)}
               </div>
             ) : (
-              <div className="emoji">🌑</div>
+              <div className="emoji">🥤</div>
             )}
             <div className="col-btns">
               <button className="btn-main" onClick={boot}>
@@ -330,7 +315,7 @@ export function Play({
                 </button>
               )}
               <button className="btn-ghost" onClick={onNights}>
-                الليالي
+                القوائم
               </button>
             </div>
           </div>

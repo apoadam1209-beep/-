@@ -7,7 +7,7 @@ import { Play } from "./components/Play";
 import { LEVELS } from "./game/levels";
 import type { Difficulty } from "./game/types";
 
-const KEY = "ramadan-nur-v3";
+const KEY = "yalla-fruit-v1";
 
 export type Progress = {
   unlocked: number;
@@ -64,7 +64,7 @@ export default function App() {
   }
 
   function start(id: number) {
-    void audio.ensure().then(() => audio.startNight());
+    void audio.ensure().then(() => audio.startShop());
     setLevelId(id);
     setScreen("play");
   }

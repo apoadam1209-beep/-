@@ -57,7 +57,7 @@ export function Install() {
       {sheet && (
         <div className="overlay" onClick={() => setSheet(false)}>
           <div className="panel" onClick={(e) => e.stopPropagation()}>
-            <h2>تثبيت ضوء رمضان</h2>
+            <h2>تثبيت يلا فاكهة</h2>
             {ios ? (
               <ol className="install-steps">
                 <li>افتح الصفحة في سفاري (مش من داخل واتساب أو إنستجرام).</li>

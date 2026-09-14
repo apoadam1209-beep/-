@@ -5,7 +5,7 @@ import type { Cell, Dir, DropFx, Game, Pos } from "../game/types";
 import { cn } from "../utils/cn";
 
 const GAP = 6;
-const PAD = 12;
+const PAD = 8;
 
 type Props = {
   game: Game;
@@ -58,6 +58,7 @@ export function Board({
   const n = game.size;
   const frameRef = useRef<HTMLDivElement>(null);
   const [cellW, setCellW] = useState(0);
+  const [cellH, setCellH] = useState(0);
   const [live, setLive] = useState(false);
   const [pull, setPull] = useState<Pull | null>(null);
   const [tick, setTick] = useState(0);
@@ -67,7 +68,8 @@ export function Board({
     x: number;
     y: number;
     done: boolean;
-    stride: number;
+    strideX: number;
+    strideY: number;
   } | null>(null);
   const settleTimer = useRef(0);
 
@@ -90,7 +92,9 @@ export function Board({
     if (!el) return;
     const measure = () => {
       const w = el.clientWidth;
+      const h = el.clientHeight;
       setCellW((w - PAD * 2 - GAP * (n - 1)) / n);
+      setCellH((h - PAD * 2 - GAP * (n - 1)) / n);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -125,15 +129,16 @@ export function Board({
     }, 200);
   }
 
-  function commit(pos: Pos, dir: Dir, dx: number, dy: number, stride: number) {
+  function commit(pos: Pos, dir: Dir, dx: number, dy: number, strideX: number, strideY: number) {
     if (!canSwipe(pos, dir)) {
       bounceHome(pos, dx, dy, dir);
       requestAnimationFrame(() => onReject());
       return;
     }
-    const fullX = dir === "right" ? stride : dir === "left" ? -stride : 0;
-    const fullY = dir === "down" ? stride : dir === "up" ? -stride : 0;
-    const remain = Math.hypot(fullX - dx, fullY - dy) / stride;
+    const fullX = dir === "right" ? strideX : dir === "left" ? -strideX : 0;
+    const fullY = dir === "down" ? strideY : dir === "up" ? -strideY : 0;
+    const span = Math.hypot(fullX, fullY) || 1;
+    const remain = Math.hypot(fullX - dx, fullY - dy) / span;
     const ms = remain < 0.04 ? 32 : 160;
     setPull({ pos, dx: fullX, dy: fullY, dir, settle: true });
     clearTimer();
@@ -148,8 +153,14 @@ export function Board({
     if (busy || game.status !== "play") return;
     clearTimer();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const stride = e.currentTarget.offsetWidth + GAP;
-    drag.current = { pos, x: e.clientX, y: e.clientY, done: false, stride };
+    drag.current = {
+      pos,
+      x: e.clientX,
+      y: e.clientY,
+      done: false,
+      strideX: e.currentTarget.offsetWidth + GAP,
+      strideY: e.currentTarget.offsetHeight + GAP,
+    };
     setPull({ pos, dx: 0, dy: 0, dir: "right", settle: false });
   }
 
@@ -163,15 +174,16 @@ export function Board({
     let dy = rawY;
     if (axisOf(dir) === "h") {
       dy = 0;
-      dx = Math.max(-d.stride, Math.min(d.stride, dx));
+      dx = Math.max(-d.strideX, Math.min(d.strideX, dx));
     } else {
       dx = 0;
-      dy = Math.max(-d.stride, Math.min(d.stride, dy));
+      dy = Math.max(-d.strideY, Math.min(d.strideY, dy));
     }
     setPull({ pos: d.pos, dx, dy, dir, settle: false });
-    if (Math.hypot(dx, dy) >= d.stride * 0.5) {
+    const need = axisOf(dir) === "h" ? d.strideX : d.strideY;
+    if (Math.hypot(dx, dy) >= need * 0.5) {
       d.done = true;
-      commit(d.pos, dir, dx, dy, d.stride);
+      commit(d.pos, dir, dx, dy, d.strideX, d.strideY);
     }
   }
 
@@ -182,21 +194,31 @@ export function Board({
     const rawX = e.clientX - d.x;
     const rawY = e.clientY - d.y;
     const dir = dirOf(rawX, rawY);
-    const dx = axisOf(dir) === "h" ? Math.max(-d.stride, Math.min(d.stride, rawX)) : 0;
-    const dy = axisOf(dir) === "v" ? Math.max(-d.stride, Math.min(d.stride, rawY)) : 0;
-    if (Math.hypot(dx, dy) >= d.stride * 0.5) {
-      commit(d.pos, dir, dx, dy, d.stride);
+    const dx = axisOf(dir) === "h" ? Math.max(-d.strideX, Math.min(d.strideX, rawX)) : 0;
+    const dy = axisOf(dir) === "v" ? Math.max(-d.strideY, Math.min(d.strideY, rawY)) : 0;
+    const need = axisOf(dir) === "h" ? d.strideX : d.strideY;
+    if (Math.hypot(dx, dy) >= need * 0.5) {
+      commit(d.pos, dir, dx, dy, d.strideX, d.strideY);
     } else {
       bounceHome(d.pos, dx, dy, dir);
     }
   }
 
-  const stride = cellW + GAP;
+  const strideX = cellW + GAP;
+  const strideY = cellH + GAP;
   void tick;
 
   return (
     <div className="board-shell">
-      <div ref={frameRef} className="board-frame" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }} dir="ltr">
+      <div
+        ref={frameRef}
+        className="board-frame"
+        style={{
+          gridTemplateColumns: `repeat(${n}, 1fr)`,
+          gridTemplateRows: `repeat(${n}, 1fr)`,
+        }}
+        dir="ltr"
+      >
         {game.grid.map((row, r) =>
           row.map((_cell, c) => {
             const pos = { r, c };
@@ -233,7 +255,7 @@ export function Board({
           })
         )}
       </div>
-      {cellW > 0 && (
+      {cellW > 0 && cellH > 0 && (
         <div className="piece-layer" aria-hidden>
           {pieces.map(({ cell, r, c }) => {
             const pos = { r, c };
@@ -251,8 +273,8 @@ export function Board({
               extraY = -pull!.dy;
             }
             const lift = spawnSet.has(cell.id) && !entered.current.has(cell.id);
-            const x = PAD + c * stride + extraX;
-            const y = PAD + r * stride + extraY + (lift ? -(r + 1) * stride : 0);
+            const x = PAD + c * strideX + extraX;
+            const y = PAD + r * strideY + extraY + (lift ? -(r + 1) * strideY : 0);
             const popping = burstSet.has(k);
             const falling = dropSet.has(cell.id);
             const moving = live && !dragging && !sliding && !lift && !popping;
@@ -270,17 +292,13 @@ export function Board({
                 )}
                 style={{
                   width: cellW,
-                  height: cellW,
+                  height: cellH,
                   transform: `translate(${x}px, ${y}px)`,
                   transition: moving || pull?.settle ? undefined : "none",
                   zIndex: dragging ? 10 : sliding ? 9 : falling || lift ? 6 : 2,
                 }}
               >
-                <FruitView
-                  cell={cell}
-                  selected={dragging}
-                  hint={hintSet.has(k)}
-                />
+                <FruitView cell={cell} selected={dragging} hint={hintSet.has(k)} />
               </div>
             );
           })}

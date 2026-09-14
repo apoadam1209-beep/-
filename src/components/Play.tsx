@@ -250,10 +250,36 @@ export function Play({
       <div className="sky" style={{ backgroundImage: "url(art/garden-path.jpg)" }} />
       <div className="vignette play-vignette" />
 
-      <header className="hud hud-float">
+      <div className="play-top">
         <button className="chip icon" onClick={onMenu} aria-label="خروج">
           ✕
         </button>
+        <div className={`order-row ${game.level.kind}`}>
+          {game.level.goals.map((gl) => {
+            const got = game.collected[gl.color] ?? 0;
+            const left = Math.max(0, gl.need - got);
+            const pct = Math.min(100, (got / Math.max(1, gl.need)) * 100);
+            const meta = COLOR_META[gl.color];
+            return (
+              <div
+                key={gl.color}
+                className={game.level.kind === "salad" ? "goal bowl" : "goal glass"}
+                style={{ ["--juice" as string]: meta.hex }}
+              >
+                <span className="goal-fill" style={{ height: `${pct}%` }} />
+                <img src={meta.art} alt="" />
+                <b>{left}</b>
+              </div>
+            );
+          })}
+          {game.needIce > 0 && (
+            <div className="goal ice-goal">
+              <img src="art/ice.png" alt="" />
+              <b>{iceN}</b>
+            </div>
+          )}
+          <strong className="moves">{game.moves}</strong>
+        </div>
         <button
           className="chip icon"
           onClick={() => {
@@ -264,33 +290,6 @@ export function Play({
         >
           {muted ? "🔇" : "🔊"}
         </button>
-      </header>
-
-      <div className={`order-row is-float ${game.level.kind}`}>
-        {game.level.goals.map((gl) => {
-          const got = game.collected[gl.color] ?? 0;
-          const left = Math.max(0, gl.need - got);
-          const pct = Math.min(100, (got / Math.max(1, gl.need)) * 100);
-          const meta = COLOR_META[gl.color];
-          return (
-            <div
-              key={gl.color}
-              className={game.level.kind === "salad" ? "goal bowl" : "goal glass"}
-              style={{ ["--juice" as string]: meta.hex }}
-            >
-              <span className="goal-fill" style={{ height: `${pct}%` }} />
-              <img src={meta.art} alt="" />
-              <b>{left}</b>
-            </div>
-          );
-        })}
-        {game.needIce > 0 && (
-          <div className="goal ice-goal">
-            <img src="art/ice.png" alt="" />
-            <b>{iceN}</b>
-          </div>
-        )}
-        <strong className="moves">{game.moves}</strong>
       </div>
 
       <div className="board-wrap is-fill">

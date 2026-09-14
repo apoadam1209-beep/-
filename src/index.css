@@ -843,6 +843,15 @@ h1, h2, h3, .title-sm { font-family: var(--font-display); }
   background:
     linear-gradient(180deg, rgba(8, 20, 8, 0.12), transparent 22%, transparent 70%, rgba(8, 18, 6, 0.28));
 }
+.garden-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
 .menu-brand {
   position: absolute;
   top: 6vh;

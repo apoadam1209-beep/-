@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { arNum, LEVELS, MENUS, ORDERS } from "../game/levels";
 
 type Props = {
@@ -8,47 +8,43 @@ type Props = {
   onPlay: (id: number) => void;
 };
 
-const MAP_W = 768;
-const MAP_H = 1376;
+const MAP = { w: 432, h: 768 };
 
 const SPOTS = [
-  { x: 48.5, y: 91.2 },
-  { x: 50.4, y: 81.2 },
-  { x: 51.4, y: 71.5 },
-  { x: 50.8, y: 61.8 },
-  { x: 51.0, y: 53.2 },
-  { x: 53.8, y: 45.0 },
-  { x: 56.0, y: 37.2 },
-  { x: 54.0, y: 29.4 },
-  { x: 53.4, y: 22.6 },
-  { x: 53.8, y: 16.4 },
+  { x: 50, y: 90 },
+  { x: 57, y: 80 },
+  { x: 64, y: 70 },
+  { x: 67, y: 61 },
+  { x: 57, y: 51 },
+  { x: 50, y: 42 },
+  { x: 56, y: 34 },
+  { x: 58, y: 26 },
+  { x: 56, y: 19 },
+  { x: 55, y: 15 },
 ];
-
-function coverPoint(cw: number, ch: number, ix: number, iy: number) {
-  const scale = Math.max(cw / MAP_W, ch / MAP_H);
-  const w = MAP_W * scale;
-  const h = MAP_H * scale;
-  return {
-    left: (cw - w) / 2 + (ix / 100) * w,
-    top: (ch - h) / 2 + (iy / 100) * h,
-  };
-}
 
 export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
   const maxGarden = Math.max(1, Math.min(MENUS, Math.ceil(unlocked / ORDERS)));
   const [garden, setGarden] = useState(maxGarden);
   const drag = useRef<{ y: number; done: boolean } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [box, setBox] = useState({ left: 0, top: 0, dw: 0, dh: 0 });
 
   useEffect(() => {
     setGarden(maxGarden);
   }, [maxGarden]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    const measure = () => {
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      const scale = Math.max(cw / MAP.w, ch / MAP.h);
+      const dw = MAP.w * scale;
+      const dh = MAP.h * scale;
+      setBox({ left: (cw - dw) / 2, top: (ch - dh) / 2, dw, dh });
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -89,36 +85,42 @@ export function Nights({ unlocked, stars, onBack, onPlay }: Props) {
       onPointerUp={onUp}
       onPointerCancel={onUp}
     >
-      <div className="sky" style={{ backgroundImage: "url(art/garden-path.jpg)" }} />
+      <img className="garden-photo" src="art/garden-map.jpg" alt="" draggable={false} />
       <div className="garden-shade" />
       <button className="chip icon garden-back" onClick={onBack} aria-label="خروج">
         ✕
       </button>
-      {box.w > 0 && (
-        <div key={garden} className="garden-spots">
-          {SPOTS.map((s, i) => {
-            const id = startId + i;
-            const lv = LEVELS[id - 1];
-            if (!lv) return null;
-            const st = stars[id] ?? 0;
-            const lock = id > unlocked;
-            const now = id === Math.min(unlocked, LEVELS.length);
-            const pt = coverPoint(box.w, box.h, s.x, s.y);
-            return (
-              <button
-                key={id}
-                type="button"
-                className={`spot ${st > 0 ? "is-lit" : ""} ${now ? "is-now" : ""} ${lock ? "is-lock" : ""}`}
-                style={{ left: `${pt.left}px`, top: `${pt.top}px` }}
-                disabled={lock}
-                onClick={() => onPlay(id)}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <b>{arNum(id)}</b>
-              </button>
-            );
-          })}
-        </div>
+      {box.dw > 0 && (
+      <div key={garden} className="garden-spots">
+        {SPOTS.map((s, i) => {
+          const id = startId + i;
+          const lv = LEVELS[id - 1];
+          if (!lv) return null;
+          const st = stars[id] ?? 0;
+          const lock = id > unlocked;
+          const now = id === Math.min(unlocked, LEVELS.length);
+          const scale = 1 - i * 0.045;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`spot ${st > 0 ? "is-lit" : ""} ${now ? "is-now" : ""} ${lock ? "is-lock" : ""}`}
+              style={{
+                left: box.left + (s.x / 100) * box.dw,
+                top: box.top + (s.y / 100) * box.dh,
+                width: `${2.7 * scale}rem`,
+                height: `${2.7 * scale}rem`,
+                fontSize: `${0.92 * scale}rem`,
+              }}
+              disabled={lock}
+              onClick={() => onPlay(id)}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <b>{arNum(id)}</b>
+            </button>
+          );
+        })}
+      </div>
       )}
     </div>
   );

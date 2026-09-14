@@ -43,7 +43,8 @@ export type LevelDef = {
   name: string;
   theme: ThemeId;
   kind: GoalKind;
-  size: number;
+  cols: number;
+  rows: number;
   colorCount: number;
   moves: number;
   goals: Goal[];
@@ -52,7 +53,8 @@ export type LevelDef = {
 
 export type Game = {
   level: LevelDef;
-  size: number;
+  cols: number;
+  rows: number;
   colors: ColorId[];
   grid: (Cell | null)[][];
   ice: number[][];

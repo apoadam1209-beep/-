@@ -55,38 +55,38 @@ function mulberry(seed: number) {
   };
 }
 
-function inb(n: number, r: number, c: number) {
-  return r >= 0 && c >= 0 && r < n && c < n;
+function inb(rows: number, cols: number, r: number, c: number) {
+  return r >= 0 && c >= 0 && r < rows && c < cols;
 }
 
-function paintIce(n: number, menu: number, order: number, rng: () => number): string[] {
-  const g = Array.from({ length: n }, () => Array<number>(n).fill(0));
+function paintIce(rows: number, cols: number, menu: number, order: number, rng: () => number): string[] {
+  const g = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
   const set = (r: number, c: number, v: number) => {
-    if (inb(n, r, c)) g[r]![c] = Math.max(g[r]![c]!, v);
+    if (inb(rows, cols, r, c)) g[r]![c] = Math.max(g[r]![c]!, v);
   };
   const wantIce = menu >= 3 && (order === 4 || order === 8 || (menu >= 8 && order % 3 === 0) || (menu >= 16 && order % 2 === 0));
   if (!wantIce) return g.map((row) => row.map(() => ".").join(""));
 
-  const m = (n / 2) | 0;
+  const mr = (rows / 2) | 0;
+  const mc = (cols / 2) | 0;
   const kind = (menu + order) % 6;
   if (kind === 0) {
-    for (let i = 1; i < n - 1; i++) {
-      set(m, i, 1);
-      set(i, m, 1);
-    }
-    set(m, m, menu > 12 ? 2 : 1);
+    for (let i = 1; i < cols - 1; i++) set(mr, i, 1);
+    for (let i = 1; i < rows - 1; i++) set(i, mc, 1);
+    set(mr, mc, menu > 12 ? 2 : 1);
   } else if (kind === 1) {
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < cols; i++) {
       set(0, i, 1);
-      set(n - 1, i, 1);
+      set(rows - 1, i, 1);
     }
   } else if (kind === 2) {
-    for (let r = 0; r < n; r++)
-      for (let c = 0; c < n; c++) if ((r + c) % 2 === 0 && rng() < 0.45) set(r, c, 1);
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) if ((r + c) % 2 === 0 && rng() < 0.45) set(r, c, 1);
   } else if (kind === 3) {
+    const n = Math.min(rows, cols);
     for (let i = 0; i < n; i++) set(i, i, 1);
   } else {
-    for (let i = 0; i < 6 + (menu % 4); i++) set((rng() * n) | 0, (rng() * n) | 0, rng() < 0.25 && menu > 14 ? 2 : 1);
+    for (let i = 0; i < 6 + (menu % 4); i++) set((rng() * rows) | 0, (rng() * cols) | 0, rng() < 0.25 && menu > 14 ? 2 : 1);
   }
   return g.map((row) => row.map((v) => (v === 0 ? "." : String(v))).join(""));
 }
@@ -128,12 +128,13 @@ function buildLevels(): LevelDef[] {
     for (let order = 1; order <= ORDERS; order++) {
       const id = (menu - 1) * ORDERS + order;
       const rng = mulberry(menu * 1009 + order * 17 + 3);
-      const size = menu < 4 && order < 5 ? 7 : 8;
+      const cols = 7;
+      const rows = 9;
       const colorCount = menu < 5 ? 5 : menu < 12 ? 6 : menu < 22 ? 7 : menu < 32 ? 8 : menu < 42 ? 9 : 10;
       const pool = FRUIT.slice(0, colorCount);
       const kind: GoalKind = (menu + order) % 3 === 1 ? "juice" : (menu + order) % 3 === 2 ? "duo" : "salad";
       const goals = goalsOf(kind, menu, order, rng, pool);
-      const ice = paintIce(size, menu, order, rng);
+      const ice = paintIce(rows, cols, menu, order, rng);
       const iceN = ice.join("").replace(/\./g, "").length;
       const need = goals.reduce((a, g) => a + g.need, 0);
       const moves = Math.max(14, Math.min(34, 12 + Math.floor(need / 2) + Math.floor(iceN / 3) + Math.floor((11 - order) / 2)));
@@ -144,7 +145,8 @@ function buildLevels(): LevelDef[] {
         name: titleOf(kind, goals),
         theme,
         kind,
-        size,
+        cols,
+        rows,
         colorCount,
         moves,
         goals,

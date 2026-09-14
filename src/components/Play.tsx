@@ -335,8 +335,24 @@ export function Play({
               <div className="emoji">🥤</div>
             )}
             <div className="col-btns row-btns">
-              <button className="btn-main" onClick={boot}>
-                تاني
+              <button className="btn-main btn-icon" onClick={boot} aria-label="تاني">
+                <svg viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    d="M4.8 12a7.2 7.2 0 1 1 2.1 5.1"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M4.8 12V6.8M4.8 12H10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
               {game.status === "won" && levelId < LEVELS.length && (
                 <button className="btn-alt" onClick={() => onNext(levelId + 1)}>

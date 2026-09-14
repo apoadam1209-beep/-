@@ -46,11 +46,16 @@ function mulberry(seed: number) {
 }
 
 function inb(g: Game, r: number, c: number) {
-  return r >= 0 && c >= 0 && r < g.size && c < g.size;
+  return r >= 0 && c >= 0 && r < g.rows && c < g.cols;
 }
 
 function parseIce(level: LevelDef): number[][] {
-  return level.ice.map((row) => [...row].map((ch) => (ch === "2" ? 2 : ch === "1" ? 1 : 0)));
+  return Array.from({ length: level.rows }, (_, r) =>
+    Array.from({ length: level.cols }, (_, c) => {
+      const ch = level.ice[r]?.[c] ?? ".";
+      return ch === "2" ? 2 : ch === "1" ? 1 : 0;
+    })
+  );
 }
 
 function iceNeed(ice: number[][]) {
@@ -73,21 +78,21 @@ function pickColor(rng: () => number, colors: ColorId[], forbid: ColorId[]) {
   return src[Math.floor(rng() * src.length)]!;
 }
 
-function colorAt(grid: (Cell | null)[][], r: number, c: number, n: number): ColorId | null {
-  if (r < 0 || c < 0 || r >= n || c >= n) return null;
+function colorAt(grid: (Cell | null)[][], r: number, c: number, rows: number, cols: number): ColorId | null {
+  if (r < 0 || c < 0 || r >= rows || c >= cols) return null;
   return grid[r]![c]?.color ?? null;
 }
 
-function fillWithoutMatch(n: number, colors: ColorId[], rng: () => number): (Cell | null)[][] {
-  const grid: (Cell | null)[][] = Array.from({ length: n }, () => Array(n).fill(null));
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+function fillWithoutMatch(rows: number, cols: number, colors: ColorId[], rng: () => number): (Cell | null)[][] {
+  const grid: (Cell | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const forbid: ColorId[] = [];
-      const left1 = colorAt(grid, r, c - 1, n);
-      const left2 = colorAt(grid, r, c - 2, n);
+      const left1 = colorAt(grid, r, c - 1, rows, cols);
+      const left2 = colorAt(grid, r, c - 2, rows, cols);
       if (left1 && left1 === left2) forbid.push(left1);
-      const up1 = colorAt(grid, r - 1, c, n);
-      const up2 = colorAt(grid, r - 2, c, n);
+      const up1 = colorAt(grid, r - 1, c, rows, cols);
+      const up2 = colorAt(grid, r - 2, c, rows, cols);
       if (up1 && up1 === up2) forbid.push(up1);
       grid[r]![c] = makeCell(pickColor(rng, colors, forbid));
     }
@@ -98,18 +103,19 @@ function fillWithoutMatch(n: number, colors: ColorId[], rng: () => number): (Cel
 type Run = { cells: Pos[]; dir: "h" | "v"; color: ColorId };
 
 function runsOf(g: Game): Run[] {
-  const n = g.size;
+  const rows = g.rows;
+  const cols = g.cols;
   const out: Run[] = [];
-  for (let r = 0; r < n; r++) {
+  for (let r = 0; r < rows; r++) {
     let c = 0;
-    while (c < n) {
+    while (c < cols) {
       const cell = g.grid[r]![c];
       if (!cell) {
         c++;
         continue;
       }
       const start = c;
-      while (c < n && g.grid[r]![c]?.color === cell.color) c++;
+      while (c < cols && g.grid[r]![c]?.color === cell.color) c++;
       if (c - start >= 3) {
         const cells: Pos[] = [];
         for (let k = start; k < c; k++) cells.push({ r, c: k });
@@ -117,16 +123,16 @@ function runsOf(g: Game): Run[] {
       }
     }
   }
-  for (let c = 0; c < n; c++) {
+  for (let c = 0; c < cols; c++) {
     let r = 0;
-    while (r < n) {
+    while (r < rows) {
       const cell = g.grid[r]![c];
       if (!cell) {
         r++;
         continue;
       }
       const start = r;
-      while (r < n && g.grid[r]![c]?.color === cell.color) r++;
+      while (r < rows && g.grid[r]![c]?.color === cell.color) r++;
       if (r - start >= 3) {
         const cells: Pos[] = [];
         for (let k = start; k < r; k++) cells.push({ r: k, c });
@@ -176,9 +182,10 @@ export function swipeGoal(g: Game, from: Pos, dir: Dir): Pos | null {
 }
 
 export function findHint(g: Game): [Pos, Pos] | null {
-  const n = g.size;
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+  const rows = g.rows;
+  const cols = g.cols;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const a = { r, c };
       for (const b of [
         { r, c: c + 1 },
@@ -232,16 +239,16 @@ export function paintCross(g: Game, origin: Pos, color: ColorId): Pos[] {
     cell.special = "none";
     out.push(p);
   };
-  for (let c = 0; c < g.size; c++) paint({ r: origin.r, c });
-  for (let r = 0; r < g.size; r++) paint({ r, c: origin.c });
+  for (let c = 0; c < g.cols; c++) paint({ r: origin.r, c });
+  for (let r = 0; r < g.rows; r++) paint({ r, c: origin.c });
   crackIce(g, out, 1);
   return out;
 }
 
 export function wipeColor(g: Game, color: ColorId): Pos[] {
   const cells: Pos[] = [];
-  for (let r = 0; r < g.size; r++) {
-    for (let c = 0; c < g.size; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       if (g.grid[r]![c]?.color === color) cells.push({ r, c });
     }
   }
@@ -351,11 +358,12 @@ export function explodeCells(g: Game, cells: Pos[]): { cracked: boolean } {
 }
 
 export function applyGravity(g: Game): DropFx[] {
-  const n = g.size;
+  const rows = g.rows;
+  const cols = g.cols;
   const drops: DropFx[] = [];
-  for (let c = 0; c < n; c++) {
-    let write = n - 1;
-    for (let r = n - 1; r >= 0; r--) {
+  for (let c = 0; c < cols; c++) {
+    let write = rows - 1;
+    for (let r = rows - 1; r >= 0; r--) {
       const cell = g.grid[r]![c];
       if (cell) {
         if (write !== r) {
@@ -371,10 +379,11 @@ export function applyGravity(g: Game): DropFx[] {
 }
 
 export function applyFill(g: Game, rng: () => number): number[] {
-  const n = g.size;
+  const rows = g.rows;
+  const cols = g.cols;
   const born: number[] = [];
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       if (!g.grid[r]![c]) {
         const cell = makeCell(pickColor(rng, g.colors, []));
         g.grid[r]![c] = cell;
@@ -406,8 +415,8 @@ export function tryActivateSpecial(
     const otherSp = g.grid[other.r]![other.c]?.special ?? "none";
     let cells: Pos[] = [];
     if (otherSp === "prism") {
-      for (let r = 0; r < g.size; r++)
-        for (let c = 0; c < g.size; c++) if (g.grid[r]![c]) cells.push({ r, c });
+      for (let r = 0; r < g.rows; r++)
+        for (let c = 0; c < g.cols; c++) if (g.grid[r]![c]) cells.push({ r, c });
       tally(g, cells);
       crackIce(g, cells, 1);
       for (const p of cells) g.grid[p.r]![p.c] = null;
@@ -489,8 +498,8 @@ function shuffle(g: Game, rng: () => number) {
     cells[j] = t;
   }
   let k = 0;
-  for (let r = 0; r < g.size; r++)
-    for (let c = 0; c < g.size; c++) g.grid[r]![c] = cells[k++] ?? makeCell(g.colors[0]!);
+  for (let r = 0; r < g.rows; r++)
+    for (let c = 0; c < g.cols; c++) g.grid[r]![c] = cells[k++] ?? makeCell(g.colors[0]!);
 }
 
 export function ensureMoves(g: Game, rng: () => number) {
@@ -513,10 +522,11 @@ export function createGame(level: LevelDef): { game: Game; rng: () => number } {
   const extras = ALL_COLORS.filter((c) => !needed.includes(c));
   const nColors = Math.max(colorCount, needed.length);
   const colors = [...needed, ...extras].slice(0, nColors);
-  const grid = fillWithoutMatch(level.size, colors, rng);
+  const grid = fillWithoutMatch(level.rows, level.cols, colors, rng);
   const game: Game = {
     level: { ...level, goals, moves },
-    size: level.size,
+    rows: level.rows,
+    cols: level.cols,
     colors,
     grid,
     ice,

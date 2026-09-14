@@ -55,7 +55,8 @@ export function Board({
   onSwap,
   onReject,
 }: Props) {
-  const n = game.size;
+  const cols = game.cols;
+  const rows = game.rows;
   const frameRef = useRef<HTMLDivElement>(null);
   const [cellW, setCellW] = useState(0);
   const [cellH, setCellH] = useState(0);
@@ -93,14 +94,14 @@ export function Board({
     const measure = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
-      setCellW((w - PAD * 2 - GAP * (n - 1)) / n);
-      setCellH((h - PAD * 2 - GAP * (n - 1)) / n);
+      setCellW((w - PAD * 2 - GAP * (cols - 1)) / cols);
+      setCellH((h - PAD * 2 - GAP * (rows - 1)) / rows);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [n]);
+  }, [cols, rows]);
 
   useLayoutEffect(() => {
     if (!spawns.length) return;
@@ -214,8 +215,8 @@ export function Board({
         ref={frameRef}
         className="board-frame"
         style={{
-          gridTemplateColumns: `repeat(${n}, 1fr)`,
-          gridTemplateRows: `repeat(${n}, 1fr)`,
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
         }}
         dir="ltr"
       >

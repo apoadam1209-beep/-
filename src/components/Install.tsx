@@ -34,9 +34,7 @@ export function Install() {
     };
   }, []);
 
-  if (installed) {
-    return <p className="install-ok">مثبّتة على جهازك — افتحها من الأيقونة</p>;
-  }
+  if (installed) return null;
 
   async function go() {
     if (deferred) {
@@ -46,38 +44,39 @@ export function Install() {
       setDeferred(null);
       return;
     }
-    setSheet(true);
+    setSheet((v) => !v);
   }
 
   return (
-    <>
-      <button className="btn-alt" type="button" onClick={() => void go()}>
-        ثبّت
-      </button>
+    <div className="install-wrap">
+      {sheet && <button type="button" className="install-scrim" aria-label="إغلاق" onClick={() => setSheet(false)} />}
       {sheet && (
-        <div className="overlay" onClick={() => setSheet(false)}>
-          <div className="panel" onClick={(e) => e.stopPropagation()}>
-            <h2>تثبيت يلا فاكهة</h2>
-            {ios ? (
-              <ol className="install-steps">
-                <li>افتح الصفحة في سفاري (مش من داخل واتساب أو إنستجرام).</li>
-                <li>اضغط زر المشاركة في الأسفل.</li>
-                <li>اختَر «إضافة إلى الشاشة الرئيسية».</li>
-                <li>اضغط إضافة — الأيقونة تظهر زي أي تطبيق.</li>
-              </ol>
-            ) : (
-              <ol className="install-steps">
-                <li>افتح الرابط في كروم (مش من داخل فيسبوك أو تيليجرام).</li>
-                <li>اضغط القائمة ⋮ ثم «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق».</li>
-                <li>أو انتظر بانر التثبيت أعلى الصفحة.</li>
-              </ol>
-            )}
-            <button className="btn-main" type="button" onClick={() => setSheet(false)}>
-              تمام
-            </button>
-          </div>
+        <div className="install-pop" role="dialog" aria-label="تثبيت يلا فاكهة">
+          {ios ? (
+            <ol className="install-steps">
+              <li>افتح الصفحة في سفاري.</li>
+              <li>اضغط المشاركة ثم «إضافة إلى الشاشة الرئيسية».</li>
+            </ol>
+          ) : (
+            <ol className="install-steps">
+              <li>افتح الرابط في كروم.</li>
+              <li>من القائمة ⋮ اختَر «تثبيت التطبيق».</li>
+            </ol>
+          )}
         </div>
       )}
-    </>
+      <button className="btn-dl" type="button" onClick={() => void go()} aria-label="تثبيت">
+        <svg viewBox="0 0 24 24" aria-hidden>
+          <path
+            d="M12 3v12m0 0-4.2-4.2M12 15l4.2-4.2M5 21h14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
   );
 }
